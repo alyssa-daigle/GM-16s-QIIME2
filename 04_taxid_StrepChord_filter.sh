@@ -1,5 +1,20 @@
 #!/bin/bash
 
+### THESE COMMENTS TELL YOU HOW TO USE THE SCRIPT
+##make script executable if not done already
+#chmod +x taxid_filter.sh
+
+##command that runs script
+# nohup bash /mnt/gpfs01/home/obrien/and1038/GMproject/taxid_filter/taxid_filter.sh \
+# > /mnt/gpfs01/home/obrien/and1038/GMproject/taxid_filter/taxid_filter.out \
+# 2> /mnt/gpfs01/home/obrien/and1038/GMproject/taxid_filter/taxid_filter.err &
+
+##check status 
+#ps aux | grep taxid_filter.sh
+
+
+### THIS IS WHERE SCRIPT ACTUALLY STARTS 
+
 cd /mnt/gpfs01/home/obrien/and1038/GMproject/taxid_filter
 
 out=/mnt/gpfs01/home/obrien/and1038/GMproject/taxid_filter/
@@ -7,23 +22,6 @@ out=/mnt/gpfs01/home/obrien/and1038/GMproject/taxid_filter/
 module purge
 module load anaconda/colsa
 conda activate ncbi_datasets
-
-
-##make script executable if not done already
-
-#chmod +x taxid_filter.sh
-
-##command that runs script
-
-# nohup bash /mnt/gpfs01/home/obrien/and1038/GMproject/taxid_filter/taxid_filter.sh \
-# > /mnt/gpfs01/home/obrien/and1038/GMproject/taxid_filter/taxid_filter.out \
-# 2> /mnt/gpfs01/home/obrien/and1038/GMproject/taxid_filter/taxid_filter.err &
-
-##check status 
-
-#ps aux | grep taxid_filter.sh
-
-
 
 echo "starting Streptophyta"
 
