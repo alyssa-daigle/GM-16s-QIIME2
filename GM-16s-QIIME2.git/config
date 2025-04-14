@@ -1,0 +1,8 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+[remote "origin"]
+	url = /mnt/home/obrien/and1038/GM-16s-QIIME2
+	fetch = +refs/*:refs/*
+	mirror = true
