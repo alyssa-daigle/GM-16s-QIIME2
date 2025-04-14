@@ -77,5 +77,7 @@ cat("Removed:", length(poss_blank), "contaminants\n")
 # ───────────────────────────────────────────────────────────────
 # 7. Save Cleaned Files
 # ───────────────────────────────────────────────────────────────
-write.table(feature_table_no_contam, "feature_table_no_contam.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+colnames(feature_table_no_contam)[1] <- "OTU_ID"
+write.table(feature_table_no_contam, "feature_table_no_contam.tsv", sep = "\t", row.names = TRUE, quote = FALSE)
+
 write.table(taxonomy_no_contam, "taxonomy_no_contam.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
