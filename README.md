@@ -1,4 +1,4 @@
-This repository contains the complete pipeline for the 16s analysis of my master's research, the Green Manures project. Scripts are labeled numerically in the order they are used in the pipeline. Both [QIIME2] (https://docs.qiime2.org/2024.10/tutorials/qiime2-for-experienced-microbiome-researchers/) and R are used for data processing. 
+This repository contains the complete pipeline for the 16s analysis of my master's research, the Green Manures project. Scripts are labeled numerically in the order they are used in the pipeline. Both [QIIME2](https://docs.qiime2.org/2024.10/tutorials/qiime2-for-experienced-microbiome-researchers/) and R are used for data processing. 
 
 * **qiime_inputs** - Directory containing necessary inputs for qiime scripts. metadata.tsv contains the metadata for my 263 samples. manifest.csv contains the locations of my raw reads. 
 * **R_inputs** - Directory containing necessary inputs for R scripts. 
