@@ -65,7 +65,7 @@ qiime dada2 denoise-paired \
  --p-trunc-len-r 0 \
  --p-pooling-method 'pseudo' \
  --p-n-threads 24 \
- --o-representative-sequences ${start}dada-repseqs.qzv \
+ --o-representative-sequences ${start}dada-repseqs.qza \
  --o-table ${start}dada-table.qza \
  --o-denoising-stats ${start}dada-stats.qza
 
