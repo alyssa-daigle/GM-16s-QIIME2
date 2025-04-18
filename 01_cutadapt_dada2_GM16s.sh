@@ -30,18 +30,18 @@ echo "done import at" $(date)
 
 echo "starting demux summary at" $(date)
 
-qiime demux summarize \ 
+qiime demux summarize \
   --i-data ${start}GM-paired-end.qza \
-  --o-visualization $start}GM-paired-end.qzv 
+  --o-visualization $start}GM-paired-end.qzv
 
 echo "done demux summary at" $(date)
 
-
 echo "starting cutadapt at" $(date)
 
+#replace with primers used in your specific analysis
 qiime cutadapt trim-paired \
  --i-demultiplexed-sequences ${start}GM-paired-end.qza \
- --p-front-f GTGYCAGCMGCCGCGGTAA \
+ --p-front-f GTGYCAGCMGCCGCGGTAA \ 
  --p-front-r CCGYCAATTYMTTTRAGTTT \
  --o-trimmed-sequences ${start}GM-trimmed.qza
 
@@ -65,7 +65,7 @@ qiime dada2 denoise-paired \
  --p-trunc-len-r 0 \
  --p-pooling-method 'pseudo' \
  --p-n-threads 24 \
- --o-representative-sequences ${start}dada-repseqs.qza \
+ --o-representative-sequences ${start}dada-repseqs.qzv \
  --o-table ${start}dada-table.qza \
  --o-denoising-stats ${start}dada-stats.qza
 
@@ -76,9 +76,8 @@ echo "starting dada stats output visualization at" $(date)
 
 qiime metadata tabulate \
  --m-input-file ${start}dada-stats.qza \
- --o-visualization ${start}dada-stats.qzv
 
-echo "done dada stats output vis at" $(date)
+ echo "done dada stats output vis at" $(date)
 
 
 echo "starting dada (feature) table vis at" $(date)
@@ -89,6 +88,17 @@ qiime feature-table summarize \
  --m-sample-metadata-file /mnt/gpfs01/home/obrien/and1038/GMproject/metadata.tsv
 
 echo "done dada (feature) table vis at" $(date)
+
+
+echo "starting filtering low-quality samples at" $(date)
+
+#filter out samples with less than 1000 reads
+qiime feature-table filter-samples \
+  --i-table ${start}dada-table.qza \
+  --p-min-frequency 10000 \
+  --o-filtered-table ${start}filtered-table.qza
+
+echo "done filtering low-quality samples at" $(date)
 
 
 echo "starting dada rep seqs vis at" $(date)
@@ -102,8 +112,9 @@ echo "done dada rep seqs vis at" $(date)
 
 echo "starting export of feature table at" $(date)
 
+#outputs feature table to use later in R
 qiime tools export \
- --input-path ${start}dada-table.qza \
+ --input-path ${start}filtered-table.qza \
  --output-path ${start}feature-table
 
  echo "done export of feature table at" $(date)
