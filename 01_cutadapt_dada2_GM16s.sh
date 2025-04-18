@@ -82,6 +82,7 @@ echo "starting dada stats output visualization at" $(date)
 
 qiime metadata tabulate \
  --m-input-file ${start}dada-stats.qza \
+ --o-visualization ${start}dada-stats.qzv
 
  echo "done dada stats output vis at" $(date)
 
