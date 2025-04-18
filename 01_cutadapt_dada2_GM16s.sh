@@ -62,7 +62,7 @@ echo "starting denoise at" $(date)
 #trunc length here is based on the demux results (GM-trimmed.qzv) which tells us where quality beings to drop off for fwd and rev reads
 #quality score drops off around 220 bp for fwd reads and 190 bp for rev reads
 #want at least 20 bp of overlap here
-#since the V4 regions of 16s rRNA gene is about 400 bp in length, the total read length after truncation is 220 + 200 bp = 420
+#since the V4-V5 regions of 16s rRNA gene is about 400 bp in length, the total read length after truncation is 220 + 200 bp = 420
 #400bp 16s rRNA - (220 fwd + 200 rev) = 20 bp overlap, which is good
 
 qiime dada2 denoise-paired \
