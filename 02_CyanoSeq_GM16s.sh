@@ -35,11 +35,14 @@ echo "done CyanoSeq data import at" $(date)
 
 echo  "starting extraction of region-specific reads at" $(date)
 
+# the trunc commands here are for trimming the classifier inputs to match the denoising (dada2) you did on your own reads in the previous script.
+# for example, according to my outout dada-repseqs.qzv, my min sequence length is 231 and my max is 490, so that is what i am trimming my classifier to.
+
 qiime feature-classifier extract-reads \
  --i-sequences /mnt/gpfs01/home/obrien/and1038/GMproject/training-feature-classifiers/CyanoSeq-ref-seqs.qza \
  --p-f-primer GTGYCAGCMGCCGCGGTAA \ 
  --p-r-primer CCGYCAATTYMTTTRAGTTT \
- --p-trunc-len 490 \
+ --p-trunc-len 490 \ 
  --p-min-length 231 \
  --o-reads /mnt/gpfs01/home/obrien/and1038/GMproject/training-feature-classifiers/CyanoSeq-ref-seqs-trimmed.qza
 
