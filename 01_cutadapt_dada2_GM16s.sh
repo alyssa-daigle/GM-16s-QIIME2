@@ -96,17 +96,6 @@ qiime feature-table summarize \
 echo "done dada (feature) table vis at" $(date)
 
 
-echo "starting filtering low-quality samples at" $(date)
-
-#filter out samples with less than 1000 reads according to dada-table.qzv
-qiime feature-table filter-samples \
- --i-table ${start}dada-table.qza \
- --p-min-frequency 1000 \
- --o-filtered-table ${start}filtered-table.qza
-
-echo "done filtering low-quality samples at" $(date)
-
-
 echo "starting dada rep seqs vis at" $(date)
 
 qiime feature-table tabulate-seqs \
@@ -120,7 +109,7 @@ echo "starting export of feature table at" $(date)
 
 #outputs feature table to use later in R
 qiime tools export \
- --input-path ${start}filtered-table.qza \
+ --input-path ${start}dada-table.qza \
  --output-path ${start}feature-table
 
  echo "done export of feature table at" $(date)

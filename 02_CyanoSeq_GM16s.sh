@@ -92,7 +92,7 @@ echo "done export of taxonomy as tsv at" $(date)
 echo "starting barplot at" $(date)
 
 qiime taxa barplot \
- --i-table ${start}filtered-table.qza \
+ --i-table ${start}dada-table.qza \
  --i-taxonomy ${start}taxonomy.qza \
  --m-metadata-file /mnt/gpfs01/home/obrien/and1038/GMproject/metadata.tsv \
  --o-visualization ${start}barplot.qzv
