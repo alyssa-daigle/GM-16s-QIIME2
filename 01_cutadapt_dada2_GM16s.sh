@@ -98,11 +98,11 @@ echo "done dada (feature) table vis at" $(date)
 
 echo "starting filtering low-quality samples at" $(date)
 
-#filter out samples with less than 1000 reads
+#filter out samples with less than 1000 reads according to dada-table.qzv
 qiime feature-table filter-samples \
-  --i-table ${start}dada-table.qza \
-  --p-min-frequency 10000 \
-  --o-filtered-table ${start}filtered-table.qza
+ --i-table ${start}dada-table.qza \
+ --p-min-frequency 1000 \
+ --o-filtered-table ${start}filtered-table.qza
 
 echo "done filtering low-quality samples at" $(date)
 
