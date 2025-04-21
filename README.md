@@ -11,5 +11,5 @@ This repository contains the complete pipeline for the 16s analysis of my master
 * **04_taxid_StrepChord_filter.sh** - Slurm script for obtaining taxa IDs from NCBI for taxa that I will eventually be removing from my data (Chordata and Streptophyta).
 * **05_filter_taxaIDs.R** - R script that filters data based on taxa IDs determined in the previous scripts. Blanks are also removed at this step.
 
-**NOTE**: The command `qiime tools export` exports the feature table as a .biom file in script 01, so I used `biom convert -i table.biom -o table.from_biom.txt --to-tsv` to convert the table to a tsv to be used in R.
+**NOTE**: The command `qiime tools export` exports the feature table as a .biom file in script 01, so I used `biom convert -i feature-table.biom -o feature-table.tsv --to-tsv` to convert the table to a tsv to be used in R.
 
