@@ -3,7 +3,7 @@ This repository contains the complete pipeline for the 16s analysis of my master
 * **qiime_inputs** - Directory containing necessary inputs for qiime scripts. metadata.tsv contains the metadata for my 263 samples. manifest.csv contains the locations of my raw reads. 
 * **R_inputs** - Directory containing necessary inputs for R scripts. 
 * **01_cutadapt_dada2_GM16s.sh** - Slurm script for data importing, cutadapt, trimming, and denoising in qiime.
-* **02_CyanoSeq_GM16s.sh** - Slurm script for training a classifier and assigning taxonomy. I am using the [CyanoSeq + SILVA combined classifier](https://zenodo.org/records/13910424) as I am looking for higher resolution when it comes to cyanobacterial reads.\
+* **02_CyanoSeq_GM16s.sh** - Slurm script for training a classifier and assigning taxonomy. I am using the [CyanoSeq + SILVA combined classifier](https://zenodo.org/records/13910424) as I am looking for higher resolution when it comes to cyanobacterial reads.
   
 **NOTE**: I chose to do all my filtering of unwanted reads/samples in R for more control, but it can be done in QIIME as well.
   
