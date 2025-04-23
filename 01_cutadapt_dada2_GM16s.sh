@@ -60,15 +60,12 @@ echo "done trimmed output visualization at" $(date)
 echo "starting denoise at" $(date)
 
 #trunc length here is based on the demux results (GM-trimmed.qzv) which tells us where quality beings to drop off for fwd and rev reads
-#quality score stays high through 240 bp for fwd reads and drops off around 200 bp for rev reads
-#want at least 20 bp of overlap here
-#since the V4-V5 regions of 16s rRNA gene is about 400 bp in length, the total read length after truncation is 240 + 200 bp = 440
-#400bp 16s rRNA - (240 fwd + 200 rev) = 40 bp overlap, which is good
+#quality score stays high throughout samples, so setting trunc to 0
 
 qiime dada2 denoise-paired \
  --i-demultiplexed-seqs ${start}GM-trimmed.qza \
- --p-trunc-len-f 240 \
- --p-trunc-len-r 200 \
+ --p-trunc-len-f 0 \
+ --p-trunc-len-r 0 \
  --p-pooling-method 'pseudo' \
  --p-n-threads 24 \
  --o-representative-sequences ${start}dada-repseqs.qzv \
@@ -113,6 +110,7 @@ qiime tools export \
  --input-path ${start}dada-table.qza \
  --output-path ${start}feature-table
 
- #biom convert -i ${start}feature-table/feature-table.biom -o ${start}feature-table/feature-table.tsv --to-tsv
+#converts feature table from .biom to .tsv
+#biom convert -i ${start}feature-table/feature-table.biom -o ${start}feature-table/feature-table.tsv --to-tsv
 
  echo "done export of feature table at" $(date)
