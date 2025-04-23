@@ -1,7 +1,7 @@
 This repository contains the complete pipeline for the 16s analysis of my master's research, the Green Manures project. Scripts are labeled numerically in the order they are used in the pipeline. Both [QIIME2](https://docs.qiime2.org/2024.10/tutorials/qiime2-for-experienced-microbiome-researchers/) and R are used for data processing. 
 
 * **qiime_inputs** - Directory containing necessary inputs for qiime scripts. metadata.tsv contains the metadata for my 263 samples. manifest.csv contains the absolute filepaths of my raw reads. 
-* **R_inputs** - Directory containing necessary inputs for R scripts. 
+* **R_inputs** - Directory containing necessary inputs for R scripts. Feature table not included due to large file size.
 * **01_cutadapt_dada2_GM16s.sh** - Slurm script for data importing, cutadapt, trimming, and denoising in qiime.
 * **02_CyanoSeq_GM16s.sh** - Slurm script for training a classifier and assigning taxonomy. I am using the [CyanoSeq + SILVA combined classifier](https://zenodo.org/records/13910424) as I am looking for higher resolution when it comes to cyanobacterial reads.
   
