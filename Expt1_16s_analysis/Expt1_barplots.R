@@ -7,7 +7,6 @@ library(tibble)
 # Data Preparation Section --------------------------------------------------
 
 #set working directory
-setwd("/Users/alyssadaigle/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s")
 
 # Step 1: Prepare OTU matrix
 otu_mat <- read.table("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s/processed_otu_matrix.tsv", header = TRUE, row.names = 1, check.names = FALSE)
@@ -215,6 +214,5 @@ combined_plot <- plot_grid(
     rel_widths = c(0.80, 0.02, 0.18)
 )
 
-ggsave("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt1_barplot.jpg", combined_plot, width = 14, height = 6)
 ggsave("Expt1_barplot.jpg", combined_plot, width = 14, height = 6)
 
