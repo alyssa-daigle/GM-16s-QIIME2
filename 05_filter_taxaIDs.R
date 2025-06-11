@@ -8,11 +8,6 @@ library(cowplot)
 library(ggplot2)
 
 # ───────────────────────────────────────────────────────────────
-# Setup
-# ───────────────────────────────────────────────────────────────
-setwd("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/taxize")
-
-# ───────────────────────────────────────────────────────────────
 # Load Data
 # ───────────────────────────────────────────────────────────────
 metadata <- read.table("metadata.tsv", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
