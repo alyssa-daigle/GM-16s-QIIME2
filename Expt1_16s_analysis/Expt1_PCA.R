@@ -123,9 +123,6 @@ pca_plot
 
 #save plot
 ggsave("Expt1_pca_plot.jpg", pca_plot, width = 6, height = 4)
-ggsave("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt1_pca_plot.jpg", pca_plot, width = 6, height = 4)
-
-
 
 # Calculate mean and standard deviation for each group of microbiome and cyano
 pca_stats <- pca_scores %>%
@@ -170,8 +167,6 @@ print(pc1_micro_plot)
 
 
 ggsave("Expt1_pc1_micro_plot.jpg", pc1_micro_plot, width = 5, height = 3)
-ggsave("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt1_pc1_micro_plot.jpg", pc1_micro_plot, width = 5, height = 3)
-
 
 # which taxa are driving the PCA
 
