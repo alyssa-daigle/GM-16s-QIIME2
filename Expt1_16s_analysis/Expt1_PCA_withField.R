@@ -10,9 +10,6 @@ library(ggtext)
 
 # Data Preparation Section --------------------------------------------------
 
-#set working directory
-setwd("/Users/alyssadaigle/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s")
-
 # Step 1: Prepare OTU matrix
 otu_mat <- read.table("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s/processed_otu_matrix.tsv", header = TRUE, row.names = 1, check.names = FALSE)
 otu_mat <- as.matrix(otu_mat)
@@ -195,8 +192,6 @@ pca_plot
 
 #save plot
 ggsave("Expt1_pca_plot.jpg", pca_plot, width = 6, height = 4)
-ggsave("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt1_pca_plot.jpg", pca_plot, width = 6, height = 4)
-
-
+                                              
 lm_PC1 <- MCMCglmm(PC1 ~ -1 + inoculum, data = pca_scores, nitt = 11000, burnin = 1000, thin = 10, verbose = FALSE)
 summary(lm_PC1)
