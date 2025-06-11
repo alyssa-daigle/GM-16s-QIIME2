@@ -132,15 +132,37 @@ family_order <- c(rev(family_order))
 family_order <- c("Other", family_order[family_order != "Other"])
 
 print(family_order)
- 
+
 # Apply ordered factor to Family column
 full_top15_families$Family <- factor(full_top15_families$Family, levels = family_order, ordered = TRUE)
 
-# Assign gray to "Other", then generate the rest
-glasbey_colors <- c("#999999", Polychrome::createPalette(length(family_order) - 1, seedcolors = c("#0000FF", "#00FF00", "#FF0000")))
+# Your palette
+gravityFalls_colors <- c(
+    "#474747FF",  # gray
+    "#8B4513FF",  # brown
+    "#D2B48CFF",  # tan (brownish)
+    "#000000FF",  # black
+    "#417BA1FF",  # blue
+    "hotpink",  # pink
+    "#FFFF2EFF",  # yellow
+    "#345634FF",  # dark green
+    "#8B0000FF",  # dark red
+    "#E2725B",  # orange
+    "#93C0D5FF",  # light blue
+    "#9248A7FF",  # purple
+    "#1C8859FF", # green
+    "pink2", # pink
+    "#8FBC8FFF" # light green
+)
 
-# Name the colors according to the family order
-names(glasbey_colors) <- family_order
+
+# Ensure 'Other' is first in family_order
+family_order <- c("Other", setdiff(family_order, "Other"))
+
+# Create final color vector: gray for "Other", rest from gravityFalls
+custom_colors <- c("#999999", gravityFalls_colors[1:(length(family_order) - 1)])
+names(custom_colors) <- family_order
+
 
 full_top15_families$micro <- factor(full_top15_families$micro, levels = c("N", setdiff(unique(full_top15_families$micro), "N")))
 
@@ -169,16 +191,18 @@ x_labels <- setNames(inoc_labels, x_levels)
 p <- ggplot(full_top15_families, aes(x = x_axis, y = RelativeAbundance, fill = Family)) +
     geom_bar(stat = "identity", position = "stack") +
     theme_cowplot() +
-    labs(x = "Treatment", y = "Relative Abundance", fill = "Family") +
+    labs(x = "", y = "Relative Abundance", fill = "Bacterial Family") +
     facet_wrap(~micro, scales = "free_x", ncol = 4, labeller = labeller(micro = micro_labels)) +
     scale_x_discrete(labels = x_labels) +
-    theme(
-        axis.text.x = element_text(size = 8, lineheight = 0.9),
-        axis.title.x = element_text(margin = margin(t = 10)),
-        legend.position = "right",
-        legend.text = element_text(size = 10)
-    ) +
-    scale_fill_manual(values = glasbey_colors, guide = guide_legend(reverse = TRUE, ncol = 1))
+    scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+    theme(axis.text.x = element_text(size = 8, lineheight = 0.9),
+          axis.text.y = element_text(size = 8),
+          legend.position = "right",
+          legend.text = element_text(size = 11),
+          legend.title = element_text(size = 11, face = "bold"),
+          strip.text = element_text(size = 10, face = "bold"), 
+          plot.margin = margin(10, 10, 10, 10)) +
+    scale_fill_manual(values = custom_colors, guide = guide_legend(reverse = TRUE, ncol = 1))
 
 # Separate legend and plot
 legend <- get_legend(p)
@@ -188,10 +212,9 @@ combined_plot <- plot_grid(
     NULL,  # adds a blank space
     legend, 
     ncol = 3, 
-    rel_widths = c(0.82, 0.03, 0.15)
+    rel_widths = c(0.80, 0.02, 0.18)
 )
 
-ggsave("Expt1_barplot.jpg", combined_plot, width = 14, height = 6)
-
 ggsave("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt1_barplot.jpg", combined_plot, width = 14, height = 6)
+ggsave("Expt1_barplot.jpg", combined_plot, width = 14, height = 6)
 

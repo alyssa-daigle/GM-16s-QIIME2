@@ -138,5 +138,20 @@ mcmc_data <- shannon_div_df %>%
 
 
 
-mod1 <- MCMCglmm(ShannonDiversity ~ micro + cyano + geno + micro:cyano + micro:geno, data=mcmc_data,verbose=F, nitt = 11000, thin = 10, burnin = 1000) 
+mod1 <- MCMCglmm(ShannonDiversity ~  -1 + micro, data=mcmc_data,verbose=F, nitt = 101000, thin = 10, burnin = 1000) 
 summary(mod1)
+
+post_summ <- summary(mod1)$solutions
+ci_df <- as.data.frame(post_summ)
+ci_df$Effect <- rownames(ci_df)
+names(ci_df)[c(1,2,3)] <- c("PostMean", "Lower95CI", "Upper95CI")
+
+ggplot(ci_df, aes(x = Effect, y = PostMean)) +
+    geom_point(size = 3) +
+    geom_errorbar(aes(ymin = Lower95CI, ymax = Upper95CI), width = 0.2) +
+    theme_minimal() +
+    labs(title = "Posterior Means and 95% Credible Intervals",
+         y = "Posterior Mean ± 95% CI",
+         x = "Effect") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+

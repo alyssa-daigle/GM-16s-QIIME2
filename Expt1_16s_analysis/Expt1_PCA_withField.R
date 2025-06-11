@@ -26,9 +26,20 @@ samples_df <- read.table("~/Library/CloudStorage/OneDrive-UniversityofNewHampshi
 
 # Data Filtering Section ----------------------------------------------------
 
-# Subset OTU matrix up to "24-d6"
+# Find the index of the "24-d6" column
 col_index <- which(colnames(otu_mat) == "24-d6")
-otu_mat_subset <- otu_mat[, 1:col_index]
+
+# Get the base subset (columns from 1 to col_index)
+base_cols <- 1:col_index
+
+# Get additional columns that end in "-Expt1", but exclude "W-soil-Expt1"
+extra_cols <- which(grepl("-Expt1$", colnames(otu_mat)) & colnames(otu_mat) != "W-soil-Expt1")
+
+# Combine the column indices and ensure uniqueness
+final_cols <- sort(unique(c(base_cols, extra_cols)))
+
+# Subset the matrix
+otu_mat_subset <- otu_mat[, final_cols]
 
 # Remove rows where all values are 0
 otu_mat_subset_filtered <- otu_mat_subset[rowSums(otu_mat_subset) > 0, ]
@@ -53,9 +64,57 @@ rownames(tax_mat_filtered) <- make.unique(rownames(tax_mat_filtered))
 # Filter OTU matrix based on taxonomy
 otu_mat_final <- otu_mat_subset_filtered[rownames(otu_mat_subset_filtered) %in% rownames(tax_mat_filtered), ]
 
-# Filter sample data for Expt 1 specific analysis
+# Find the index of the "24-d6" row
 row_index <- which(rownames(samples_df) == "24-d6")
-samples_df_filtered <- samples_df[1:row_index, , drop = FALSE]
+
+# Get base rows: 1 through "24-d6"
+base_rows <- 1:row_index
+
+# Get additional rows that end in "-Expt1", excluding "W-soil-Expt1"
+extra_rows <- which(grepl("-Expt1$", rownames(samples_df)) & rownames(samples_df) != "W-soil-Expt1")
+
+# Combine and sort unique row indices
+final_rows <- sort(unique(c(base_rows, extra_rows)))
+
+# Subset the dataframe
+samples_df_filtered <- samples_df[final_rows, , drop = FALSE]
+
+# Find the index for "24-d6"
+cutoff_row <- which(rownames(samples_df_filtered) == "24-d6")
+
+# Separate the data into two parts
+df_tidy <- samples_df_filtered[1:cutoff_row, ]
+df_rest <- samples_df_filtered[(cutoff_row + 1):nrow(samples_df_filtered), ]
+
+# Separate the treatment column in the top part only
+df_tidy <- df_tidy %>%
+    separate(treatment, into = c("geno", "cyano", "micro"), sep = "-", remove = FALSE)
+
+# Combine the two parts back together
+samples_df_filtered <- bind_rows(df_tidy, df_rest)
+
+samples_df_filtered <- samples_df_filtered %>%
+    mutate(inoculum = case_when(
+        micro == "N" ~ "Uninoculated",
+        micro == "H" ~ "Home",
+        micro == "ODR" ~ "Dairy Farm",
+        micro == "KF" ~ "Kingman Farm",
+        TRUE ~ NA_character_
+    )) |> 
+    select(-geno, -cyano, -micro)
+
+samples_df_filtered <- samples_df_filtered %>%
+    mutate(inoculum = case_when(
+        grepl("W-Expt1", treatment)   ~ "Field",
+        grepl("Dr-Expt1", treatment)  ~ "Field",
+        grepl("LR-Expt1", treatment)  ~ "Field",
+        grepl("UM-Expt1", treatment)  ~ "Field",
+        grepl("MP-Expt1", treatment)  ~ "Field",
+        grepl("TF-Expt1", treatment)  ~ "Field",
+        grepl("KF-Expt1", treatment)  ~ "Field",
+        grepl("ODR-Expt1", treatment) ~ "Field",
+        TRUE ~ inoculum  # keep existing values for all other treatments
+    ))
 
 # Relative Abundance Calculation ----------------------------------------
 
@@ -81,8 +140,6 @@ physeq <- phyloseq(OTU, TAX, samples)
 otu_data <- otu_table(physeq)
 otu_data_log <- log1p(otu_data)
 
-
-
 # Perform PCA using prcomp()
 pca_results <- prcomp(t(otu_data_log), scale. = TRUE)
 eig_vals <- eigenvals(pca_results)  # Eigenvalues
@@ -96,21 +153,31 @@ pca_scores$SampleID <- rownames(pca_scores)
 
 pca_scores <- merge(pca_scores, samples_df_filtered, by.x = "SampleID", by.y = "row.names", all.x = TRUE)
 
-
 # separate treatment into components
-pca_scores <- pca_scores %>%
+# Separate treatment only in first 192 rows
+first_part <- pca_scores[1:192, ] %>%
     separate(treatment, into = c("geno", "cyano", "micro"), sep = "-", remove = FALSE)
 
+# For rows after 192, add the same columns but fill with NA
+second_part <- pca_scores[193:nrow(pca_scores), ]
+second_part$geno <- NA
+second_part$cyano <- "N"
+second_part$micro <- NA
+
+# Recombine
+pca_scores <- bind_rows(first_part, second_part)
+
 # assign colors to microbes
-custom_colors <- c("#AA4499", "#DDCC77", "#88CCEE", "#117733")
+custom_colors <- c("#AA4499", "#DDCC77", "#88CCEE", "#117733", "orange")
+
+#set inoculum levels 
+pca_scores$inoculum <- factor(pca_scores$inoculum, levels = c("Home", "Kingman Farm", "Dairy Farm", "Uninoculated", "Field"))
 
 # Step 4: Visualize PCA
-pca_plot <- ggplot(pca_scores, aes(x = PC1, y = PC2, color = micro, shape = cyano)) +
+pca_plot <- ggplot(pca_scores, aes(x = PC1, y = PC2, color = inoculum, shape = cyano)) +
     geom_point(size = 2.5) +
     scale_color_manual(name = "Microbiome Source",
-                       values = custom_colors,
-                       breaks = c("H", "KF", "ODR", "N"),
-                       labels = c("Home", "Kingman Farm", "Dairy Farm", "Uninoculated")) +
+                       values = custom_colors)+
     scale_shape_manual(name = "*M. aeruginosa* Spike",
                        values = c("Y" = 16, "N" = 17),
                        labels = c("Y" = "Yes", "N" = "No")) +
@@ -127,5 +194,9 @@ pca_plot <- ggplot(pca_scores, aes(x = PC1, y = PC2, color = micro, shape = cyan
 pca_plot 
 
 #save plot
-ggsave("Expt1_pca_plot.jpg", pca_plot, width = 8, height = 5)
-ggsave("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt1_pca_plot.jpg", pca_plot, width = 8, height = 5)
+ggsave("Expt1_pca_plot.jpg", pca_plot, width = 6, height = 4)
+ggsave("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt1_pca_plot.jpg", pca_plot, width = 6, height = 4)
+
+
+lm_PC1 <- MCMCglmm(PC1 ~ -1 + inoculum, data = pca_scores, nitt = 11000, burnin = 1000, thin = 10, verbose = FALSE)
+summary(lm_PC1)
