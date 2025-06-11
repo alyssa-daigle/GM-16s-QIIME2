@@ -10,9 +10,6 @@ library(ggtext)
 
 # Data Preparation Section --------------------------------------------------
 
-#set working directory
-setwd("/Users/alyssadaigle/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s")
-
 # Step 1: Prepare OTU matrix
 otu_mat <- read.table("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s/processed_otu_matrix.tsv", header = TRUE, row.names = 1, check.names = FALSE)
 otu_mat <- as.matrix(otu_mat)
