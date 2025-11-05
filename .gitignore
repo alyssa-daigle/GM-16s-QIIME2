@@ -1,3 +1,2 @@
-data/processed_otu_matrix.tsv
 data/processed_asv_matrix.tsv
 00_QIIME2/R_inputs/feature_table_no_contam.tsv
