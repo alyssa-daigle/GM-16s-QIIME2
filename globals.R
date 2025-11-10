@@ -7,12 +7,12 @@ invisible(
     "purrr", #
     "dplyr",
     "cowplot",
-    "cowplot",
     "vegan",
     "tibble",
     "ggtext",
     "dotenv",
-    "compositions"
+    "compositions",
+    "corncob"
   ) |>
     lapply(function(x) {
       if (suppressMessages(!require(x, character.only = TRUE))) {
