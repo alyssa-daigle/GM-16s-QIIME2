@@ -111,6 +111,7 @@ asv_mat_long_filtered <- asv_mat_long |>
 asv_treatment_counts_full <- asv_mat_long_filtered |>
     complete(treatment, Family, fill = list(TotalCount = 0)) # Fill with zero for missing families
 
+# only focusing on top 15
 top15_families <- asv_treatment_counts_full |>
     group_by(Family) |>
     summarise(TotalCount = sum(Count), .groups = 'drop') |>
@@ -163,7 +164,7 @@ family_order <- family_order[family_order != "Other"]
 family_order <- c(rev(family_order))
 family_order <- c("Other", family_order[family_order != "Other"])
 
-print(family_order)
+#print(family_order)
 
 # apply ordered factor to Family column
 full_top15_families$Family <- factor(

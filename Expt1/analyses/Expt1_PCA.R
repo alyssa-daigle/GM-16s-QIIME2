@@ -97,7 +97,7 @@ tax_mat_filtered_counts <- tax_mat_filtered[
 
 # Phyloseq Object Creation --------------------------------------------------
 
-# Step 12: Create phyloseq object
+# Create phyloseq object
 ASV <- otu_table(asv_mat_filtered_counts, taxa_are_rows = TRUE) #actually ASVs
 TAX <- tax_table(tax_mat_filtered_counts)
 samples <- sample_data(samples_df_filtered)
@@ -138,7 +138,7 @@ pca_scores <- pca_scores |>
 # assign colors to microbes
 custom_colors <- c("#AA4499", "#DDCC77", "#88CCEE", "#117733")
 
-# Step 4: Visualize PCA
+# Visualize PCA
 pca_plot <- ggplot(
     pca_scores,
     aes(x = PC1, y = PC2, color = micro, shape = cyano)
@@ -208,7 +208,7 @@ top10_PC1_df <- get_top_asvs(asv_loadings, "PC1")
 top10_PC2_df <- get_top_asvs(asv_loadings, "PC2")
 
 
-#  linear model to see that PC1 is significantly affected by treatment
+# linear model to see that PC1 is significantly affected by treatment
 
 pca_scores$treatment <- as.factor(pca_scores$treatment)
 

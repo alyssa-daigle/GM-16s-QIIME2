@@ -1,33 +1,31 @@
-library(phyloseq)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(cowplot)
-library(vegan)
-library(tibble)
-library(MCMCglmm)
-library(ggtext)
-library(corncob)
+source("globals.R")
+
+# Load .env file
+load_dot_env()
+
+# Get data path from environment variable
+data_path <- Sys.getenv("data_path")
+plots_path <- Sys.getenv("plots")
 
 # Data Preparation Section --------------------------------------------------
 
-#set working directory
-setwd(
-    "/Users/alyssadaigle/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s"
-)
+# Read ASV matrix
+asv_file <- file.path(data_path, "processed_asv_matrix.tsv")
 
-# Step 1: Prepare OTU matrix
-otu_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s/processed_otu_matrix.tsv",
+asv_mat <- read.table(
+    asv_file,
     header = TRUE,
+    sep = "\t",
     row.names = 1,
     check.names = FALSE
 )
-otu_mat <- as.matrix(otu_mat)
+asv_mat <- as.matrix(asv_mat)
 
-# Step 2: Prepare taxonomy matrix
+# Read taxonomy matrix
+tax_file <- file.path(data_path, "processed_taxonomy_matrix.tsv")
+
 tax_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s/processed_taxonomy_matrix.tsv",
+    tax_file,
     sep = "\t",
     header = TRUE,
     row.names = 1,
@@ -35,24 +33,28 @@ tax_mat <- read.table(
 )
 tax_mat <- as.matrix(tax_mat)
 
-# Step 3: Prepare sample data
+# Read sample metadata
+samples_file <- file.path(data_path, "processed_sample_metadata.tsv")
+
 samples_df <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s/processed_sample_metadata.tsv",
-    header = TRUE
+    samples_file,
+    header = TRUE,
+    sep = "\t",
+    stringsAsFactors = FALSE
 )
 
 # Data Filtering Section ----------------------------------------------------
 
-# Subset OTU matrix up to "24-d6"
-col_index <- which(colnames(otu_mat) == "24-d6")
-otu_mat_subset <- otu_mat[, 1:col_index]
+# Subset ASV matrix up to "24-d6"
+col_index <- which(colnames(asv_mat) == "24-d6")
+asv_mat_subset <- asv_mat[, 1:col_index]
 
 # Remove rows where all values are 0
-otu_mat_subset_filtered <- otu_mat_subset[rowSums(otu_mat_subset) > 0, ]
+asv_mat_subset_filtered <- asv_mat_subset[rowSums(asv_mat_subset) > 0, ]
 
 # Subset the taxonomy matrix
 tax_mat_filtered <- tax_mat[
-    rownames(tax_mat) %in% rownames(otu_mat_subset_filtered),
+    rownames(tax_mat) %in% rownames(asv_mat_subset_filtered),
 ]
 
 # Filter out specific taxa
@@ -69,9 +71,9 @@ tax_mat_filtered <- tax_mat_filtered[
 # Ensure unique taxa names
 rownames(tax_mat_filtered) <- make.unique(rownames(tax_mat_filtered))
 
-# Filter OTU matrix based on taxonomy
-otu_mat_final <- otu_mat_subset_filtered[
-    rownames(otu_mat_subset_filtered) %in% rownames(tax_mat_filtered),
+# Filter ASV matrix based on taxonomy
+asv_mat_final <- asv_mat_subset_filtered[
+    rownames(asv_mat_subset_filtered) %in% rownames(tax_mat_filtered),
 ]
 
 # Filter sample data for Expt 1 specific analysis
@@ -82,17 +84,17 @@ samples_df_filtered <- samples_df[1:row_index, , drop = FALSE]
 # Relative Abundance Calculation ----------------------------------------
 
 # Relative abundance for filtering
-otu_mat_relative <- sweep(otu_mat_final, 2, colSums(otu_mat_final), `/`) * 100
+asv_mat_relative <- sweep(asv_mat_final, 2, colSums(asv_mat_final), `/`) * 100
 
 # Filter taxa based on mean relative abundance (keep only those with >= 1%)
-keep_taxa <- rownames(otu_mat_relative)[apply(otu_mat_relative, 1, function(x) {
+keep_taxa <- rownames(asv_mat_relative)[apply(asv_mat_relative, 1, function(x) {
     any(x >= 1)
 })]
-otu_mat_filtered_counts <- otu_mat_final[keep_taxa, ]
+asv_mat_filtered_counts <- asv_mat_final[keep_taxa, ]
 
-# Filter taxonomy again based on newly calculated rel abundance in the OTU matrix
+# Filter taxonomy again based on newly calculated rel abundance in the ASV matrix
 tax_mat_filtered_counts <- tax_mat_filtered[
-    rownames(tax_mat_filtered) %in% rownames(otu_mat_filtered_counts),
+    rownames(tax_mat_filtered) %in% rownames(asv_mat_filtered_counts),
 ]
 
 # Phyloseq Object Creation --------------------------------------------------
@@ -107,10 +109,6 @@ samples_df_filtered <- samples_df_filtered |>
         sep = "-",
         remove = FALSE
     )
-# mutate(micro = if_else(micro == "H", paste0("H_", geno), micro))
-
-# Make sure 'micro' is a factor with microN as the reference level
-# samples_df_filtered$micro <- factor(samples_df_filtered$micro, levels = c("N", "H_DR", "H_LR", "H_M", "H_TF", "H_UM", "H_W", "KF", "ODR"))
 
 samples_df_filtered <- samples_df_filtered |>
     mutate(
@@ -124,13 +122,13 @@ samples_df_filtered <- samples_df_filtered |>
 microN_df <- samples_df_filtered |>
     filter(micro == "N")
 
-# Create phyloseq components
-OTU <- otu_table(otu_mat_filtered_counts, taxa_are_rows = TRUE)
+# Create phyloseq object
+ASV <- otu_table(asv_mat_filtered_counts, taxa_are_rows = TRUE) #actually ASVs
 TAX <- tax_table(tax_mat_filtered_counts)
-samples <- sample_data(microN_df)
-microN_physeq <- phyloseq(OTU, TAX, samples)
+samples <- sample_data(samples_df_filtered)
+microN_physeq <- phyloseq(ASV, TAX, samples)
 
-# Agglomerate taxa at the Family level
+# taxa at the Family level
 microN_physeq_family <- tax_glom(microN_physeq, taxrank = "Family")
 
 # Convert tax_table to data frame
@@ -166,10 +164,10 @@ diff_test <- differentialTest(
 # Extract plotting data just for those taxa
 plot_data <- plot(diff_test, level = "Family", data_only = TRUE)
 
-# Step 2: Create a new column for enrichment direction
+# Create a new column for enrichment direction
 plot_data$effect_direction <- ifelse(plot_data$x > 0, "Enriched", "Depleted")
 
-# Optional: reorder taxa for better plotting (by effect size within each facet)
+# reorder taxa for better plotting (by effect size within each facet)
 plot_data <- plot_data |>
     drop_na() |>
     group_by(variable) |>
@@ -202,10 +200,10 @@ microH_df <- samples_df_filtered |>
     filter(micro == "H")
 
 # Create phyloseq components
-OTU <- otu_table(otu_mat_filtered_counts, taxa_are_rows = TRUE)
+ASV <- otu_table(asv_mat_filtered_counts, taxa_are_rows = TRUE)
 TAX <- tax_table(tax_mat_filtered_counts)
 samples <- sample_data(microH_df)
-microH_physeq <- phyloseq(OTU, TAX, samples)
+microH_physeq <- phyloseq(ASV, TAX, samples)
 
 # Agglomerate taxa at the Family level
 microH_physeq_family <- tax_glom(microH_physeq, taxrank = "Family")
@@ -213,12 +211,6 @@ microH_physeq_family <- tax_glom(microH_physeq, taxrank = "Family")
 # Convert tax_table to data frame
 tax_df <- as.data.frame(tax_table(microH_physeq_family))
 
-# Identify taxa to remove
-families_to_remove <- c(
-    "NS11-12 marine group",
-    "Mitochondria",
-    "Incertae Sedis"
-)
 
 # Identify taxa to keep (i.e., not in the families_to_remove)
 taxa_to_keep <- rownames(tax_df)[!(tax_df$Family %in% families_to_remove)]
@@ -242,10 +234,10 @@ micrH_diff_test <- differentialTest(
 # Extract plotting data just for those taxa
 plot_data <- plot(micrH_diff_test, level = "Family", data_only = TRUE)
 
-# Step 2: Create a new column for enrichment direction
+# Create a new column for enrichment direction
 plot_data$effect_direction <- ifelse(plot_data$x > 0, "Enriched", "Depleted")
 
-# Optional: reorder taxa for better plotting (by effect size within each facet)
+# Reorder taxa for better plotting (by effect size within each facet)
 plot_data <- plot_data |>
     drop_na() |>
     group_by(variable) |>
@@ -277,23 +269,16 @@ microKF_df <- samples_df_filtered |>
     filter(micro == "KF")
 
 # Create phyloseq components
-OTU <- otu_table(otu_mat_filtered_counts, taxa_are_rows = TRUE)
+ASV <- otu_table(asv_mat_filtered_counts, taxa_are_rows = TRUE)
 TAX <- tax_table(tax_mat_filtered_counts)
 samples <- sample_data(microKF_df)
-microKF_physeq <- phyloseq(OTU, TAX, samples)
+microKF_physeq <- phyloseq(ASV, TAX, samples)
 
 # Agglomerate taxa at the Family level
 microKF_physeq_family <- tax_glom(microKF_physeq, taxrank = "Family")
 
 # Convert tax_table to data frame
 tax_df <- as.data.frame(tax_table(microKF_physeq_family))
-
-# Identify taxa to remove
-families_to_remove <- c(
-    "NS11-12 marine group",
-    "Mitochondria",
-    "Incertae Sedis"
-)
 
 # Identify taxa to keep (i.e., not in the families_to_remove)
 taxa_to_keep <- rownames(tax_df)[!(tax_df$Family %in% families_to_remove)]
@@ -317,10 +302,10 @@ microKF_diff_test <- differentialTest(
 # Extract plotting data just for those taxa
 plot_data <- plot(microKF_diff_test, level = "Family", data_only = TRUE)
 
-# Step 2: Create a new column for enrichment direction
+# Create a new column for enrichment direction
 plot_data$effect_direction <- ifelse(plot_data$x > 0, "Enriched", "Depleted")
 
-# Optional: reorder taxa for better plotting (by effect size within each facet)
+# reorder taxa for better plotting (by effect size within each facet)
 plot_data <- plot_data |>
     drop_na() |>
     group_by(variable) |>
@@ -352,10 +337,10 @@ microODR_df <- samples_df_filtered |>
     filter(micro == "ODR")
 
 # Create phyloseq components
-OTU <- otu_table(otu_mat_filtered_counts, taxa_are_rows = TRUE)
+ASV <- otu_table(asv_mat_filtered_counts, taxa_are_rows = TRUE)
 TAX <- tax_table(tax_mat_filtered_counts)
 samples <- sample_data(microODR_df)
-microODR_physeq <- phyloseq(OTU, TAX, samples)
+microODR_physeq <- phyloseq(ASV, TAX, samples)
 
 # Agglomerate taxa at the Family level
 microODR_physeq_family <- tax_glom(microODR_physeq, taxrank = "Family")
@@ -392,10 +377,10 @@ microODR_diff_test <- differentialTest(
 # Extract plotting data just for those taxa
 plot_data <- plot(microODR_diff_test, level = "Family", data_only = TRUE)
 
-# Step 2: Create a new column for enrichment direction
+# Create a new column for enrichment direction
 plot_data$effect_direction <- ifelse(plot_data$x > 0, "Enriched", "Depleted")
 
-# Optional: reorder taxa for better plotting (by effect size within each facet)
+# reorder taxa for better plotting (by effect size within each facet)
 plot_data <- plot_data |>
     drop_na() |>
     group_by(variable) |>
@@ -437,5 +422,17 @@ combined_plot <- plot_grid(
 )
 combined_plot
 
-ggsave("Expt1_diffabund_plot_combined.jpg", width = 10, height = 4, dpi = 500)
-# ggsave("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt1_diffabund_plot_combined.jpg", width = 5, height = 6, dpi = 500)
+# Build full file path
+diffabund_plot_file <- file.path(
+    plots_path,
+    "Expt1_diffabund_plot_combined.jpg"
+)
+
+# Save the plot
+ggsave(
+    filename = diffabund_plot_file,
+    plot = combined_plot,
+    width = 10,
+    height = 4,
+    dpi = 500
+)
