@@ -1,31 +1,29 @@
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(cowplot)
-library(vegan)
-library(tibble)
-library(MCMCglmm)
-library(ggtext)
+source("globals.R")
 
-# Data Preparation Section --------------------------------------------------
+# Load .env file
+load_dot_env()
 
-#set working directory
-setwd(
-    "/Users/alyssadaigle/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s"
-)
+# Get data path from environment variable
+data_path <- Sys.getenv("data_path")
+plots_path <- Sys.getenv("plots")
 
-# Step 1: Prepare OTU matrix
-otu_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s/processed_otu_matrix.tsv",
+# Read ASV matrix
+asv_file <- file.path(data_path, "processed_asv_matrix.tsv")
+
+asv_mat <- read.table(
+    asv_file,
     header = TRUE,
+    sep = "\t",
     row.names = 1,
     check.names = FALSE
 )
-otu_mat <- as.matrix(otu_mat)
+asv_mat <- as.matrix(asv_mat)
 
-# Step 2: Prepare taxonomy matrix
+# Read taxonomy matrix
+tax_file <- file.path(data_path, "processed_taxonomy_matrix.tsv")
+
 tax_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s/processed_taxonomy_matrix.tsv",
+    tax_file,
     sep = "\t",
     header = TRUE,
     row.names = 1,
@@ -33,25 +31,28 @@ tax_mat <- read.table(
 )
 tax_mat <- as.matrix(tax_mat)
 
-# Step 3: Prepare sample data
+# Read sample metadata
+samples_file <- file.path(data_path, "processed_sample_metadata.tsv")
+
 samples_df <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment1_16s/processed_sample_metadata.tsv",
-    header = TRUE
+    samples_file,
+    header = TRUE,
+    sep = "\t",
+    stringsAsFactors = FALSE
 )
-colnames(samples_df)[2] <- "SampleID"
 
 # Data Filtering Section ----------------------------------------------------
 
-# Subset OTU matrix up to "24-d6"
-col_index <- which(colnames(otu_mat) == "24-d6")
-otu_mat_subset <- otu_mat[, 1:col_index]
+# Subset ASV matrix up to "24-d6"
+col_index <- which(colnames(asv_mat) == "24-d6")
+asv_mat_subset <- asv_mat[, 1:col_index]
 
 # Remove rows where all values are 0
-otu_mat_subset_filtered <- otu_mat_subset[rowSums(otu_mat_subset) > 0, ]
+asv_mat_subset_filtered <- asv_mat_subset[rowSums(asv_mat_subset) > 0, ]
 
 # Subset the taxonomy matrix
 tax_mat_filtered <- tax_mat[
-    rownames(tax_mat) %in% rownames(otu_mat_subset_filtered),
+    rownames(tax_mat) %in% rownames(asv_mat_subset_filtered),
 ]
 
 # Filter out specific taxa
@@ -68,9 +69,9 @@ tax_mat_filtered <- tax_mat_filtered[
 # Ensure unique taxa names
 rownames(tax_mat_filtered) <- make.unique(rownames(tax_mat_filtered))
 
-# Filter OTU matrix based on taxonomy
-otu_mat_final <- otu_mat_subset_filtered[
-    rownames(otu_mat_subset_filtered) %in% rownames(tax_mat_filtered),
+# Filter ASV matrix based on taxonomy
+asv_mat_final <- asv_mat_subset_filtered[
+    rownames(asv_mat_subset_filtered) %in% rownames(tax_mat_filtered),
 ]
 
 # Filter sample data for Expt 1 specific analysis
@@ -78,17 +79,16 @@ row_index <- which(rownames(samples_df) == "24-d6")
 samples_df_filtered <- samples_df[1:row_index, , drop = FALSE]
 
 # Shannon Diversity analysis ---------------------------------------------------
-shannon_div <- diversity(otu_mat_final, index = "shannon", MARGIN = 2)
+shannon_div <- diversity(asv_mat_final, index = "shannon", MARGIN = 2)
 
 shannon_div_df <- data.frame(
-    SampleID = colnames(otu_mat_final), # Sample names are the column names
+    sample = colnames(asv_mat_final), # Sample names are the column names
     ShannonDiversity = shannon_div
 )
 
 # Merge with sample metadata
-shannon_div_df <- merge(shannon_div_df, samples_df_filtered, by = "SampleID")
+shannon_div_df <- merge(shannon_div_df, samples_df_filtered, by = "sample")
 
-# Step 1: Define and preprocess the variables
 # Separate the treatment into geno, cyano, and micro
 shannon_div_df <- shannon_div_df |>
     separate(
@@ -120,7 +120,7 @@ shannon_div_df$x_axis <- paste(
     sep = "_"
 ) # Combine group and inoc
 
-# Step 2: Define levels for x_axis and labels for the x-axis
+# Define levels for x_axis and labels for the x-axis
 x_levels <- c(
     "DR_Y",
     "DR_N",
@@ -152,7 +152,7 @@ cyano_colors <- c("No" = "black", "Yes" = "aquamarine4")
 # Set the labels for the x-axis, keeping Y/N only (no group labels like DR, LR, etc.)
 x_labels <- setNames(inoc_labels, x_levels)
 
-# Step 3: Plot
+# Plot
 dodge_width <- 0.5 # Define dodge width
 
 # Create the updated Shannon Diversity plot
@@ -196,18 +196,16 @@ Expt1_shan_div <- ggplot(
 
 Expt1_shan_div
 
+# Build full file path
+div_plot_file <- file.path(plots_path, "Expt1_shannon_diversity_barplot.jpg")
+
 # Save the plot
 ggsave(
-    "Expt1_shannon_diversity_barplot.jpg",
-    Expt1_shan_div,
+    filename = div_plot_file,
+    plot = Expt1_shan_div,
     width = 12,
-    height = 4
-)
-ggsave(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt1_shannon_diversity_barplot.jpg",
-    Expt1_shan_div,
-    width = 12,
-    height = 4
+    height = 4,
+    dpi = 500
 )
 
 # Linear model section ------------------------------------------------
