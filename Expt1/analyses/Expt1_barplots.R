@@ -80,26 +80,26 @@ samples_df_filtered <- samples_df[1:row_index, , drop = FALSE]
 
 # Bar Plot Section -----------------------------------------------------------
 
-# Step 1: Ensure missing families in treatments are treated as having zero counts
+# ensure missing families in treatments are treated as having zero counts
 
 asv_mat_final_df <- as.data.frame(asv_mat_final) |>
     rownames_to_column(var = "FeatureID")
 
-# Step 2: Reshape ASV data into long format and merge with metadata
+# reshape ASV data into long format and merge with metadata
 samples_df_filtered$SampleID <- rownames(samples_df_filtered)
 
 asv_mat_long <- asv_mat_final_df |>
     pivot_longer(-FeatureID, names_to = "Sample", values_to = "Count") |>
     left_join(samples_df_filtered, by = c("Sample" = "SampleID"))
 
-# Step 3: Add taxonomy information
+# add taxonomy information
 tax_mat_filtered_df <- as.data.frame(tax_mat_filtered) |>
     rownames_to_column(var = "FeatureID")
 
 asv_mat_long <- asv_mat_long |>
     left_join(tax_mat_filtered_df, by = "FeatureID")
 
-# Step 4: Filter out unclassified taxa before calculating relative abundance
+# filter out unclassified taxa before calculating relative abundance
 
 asv_mat_long_filtered <- asv_mat_long |>
     filter(
@@ -107,7 +107,7 @@ asv_mat_long_filtered <- asv_mat_long |>
         !is.na(Class) & Class != "Unclassified"
     )
 
-# Step 5: Fill missing family counts with zeroes for each treatment
+# fill missing family counts with zeroes for each treatment
 asv_treatment_counts_full <- asv_mat_long_filtered |>
     complete(treatment, Family, fill = list(TotalCount = 0)) # Fill with zero for missing families
 
@@ -121,7 +121,7 @@ top15_families <- asv_treatment_counts_full |>
 full_top15_families <- asv_treatment_counts_full |>
     filter(Family %in% top15_families$Family)
 
-#classify other families into "Other" group with total count
+# classify other families into "Other" group with total count
 other_families <- asv_treatment_counts_full |>
     mutate(
         Family = ifelse(Family %in% top15_families$Family, Family, "Other")
@@ -130,19 +130,19 @@ other_families <- asv_treatment_counts_full |>
     group_by(treatment, Family) |>
     summarise(Count = sum(Count), .groups = 'drop')
 
-#append "Other" to the top 15 DF, with Other coming as the last "Family" per treatment
+# append "Other" to the top 15 DF, with Other coming as the last "Family" per treatment
 full_top15_families <- full_top15_families |>
     bind_rows(other_families) |>
     mutate(Family = factor(Family, levels = c(top15_families$Family, "Other")))
 
-#relative abundance per treatment
+# relative abundance per treatment
 full_top15_families <- full_top15_families |>
     group_by(treatment) |>
     mutate(RelativeAbundance = Count / sum(Count)) |>
     ungroup() |>
     select(-FeatureID, -Kingdom, -Phylum, -Class, -Order, -Genus)
 
-# Step 11: extract treatment components
+# extract treatment components
 full_top15_families <- full_top15_families |>
     separate(
         treatment,
@@ -157,7 +157,7 @@ family_order <- full_top15_families |>
     arrange(desc(TotalAbundance)) |>
     pull(Family)
 
-# Convert to character to prevent NA coercion
+# convert to character to prevent NA coercion
 family_order <- as.character(family_order)
 family_order <- family_order[family_order != "Other"]
 family_order <- c(rev(family_order))
@@ -165,14 +165,14 @@ family_order <- c("Other", family_order[family_order != "Other"])
 
 print(family_order)
 
-# Apply ordered factor to Family column
+# apply ordered factor to Family column
 full_top15_families$Family <- factor(
     full_top15_families$Family,
     levels = family_order,
     ordered = TRUE
 )
 
-# Your palette
+# color palette
 gravityFalls_colors <- c(
     "#474747FF", # gray
     "#8B4513FF", # brown
@@ -192,10 +192,10 @@ gravityFalls_colors <- c(
 )
 
 
-# Ensure 'Other' is first in family_order
+# ensure 'Other' is first in family_order
 family_order <- c("Other", setdiff(family_order, "Other"))
 
-# Create final color vector: gray for "Other", rest from gravityFalls
+# create final color vector: gray for "Other", rest from gravityFalls
 custom_colors <- c("#999999", gravityFalls_colors[1:(length(family_order) - 1)])
 names(custom_colors) <- family_order
 
@@ -212,8 +212,7 @@ micro_labels <- c(
     "ODR" = "Dairy Farm microbiome"
 )
 
-# Step 1: Define and preprocess the variables
-# Create x_axis as a factor with fixed levels to preserve the exact order
+# create x_axis as a factor with fixed levels to preserve the exact order
 full_top15_families$group <- sub("-[YN]-.*", "", full_top15_families$treatment) # DR, LR, etc.
 full_top15_families$inoc <- sub(
     "^.*?-([YN])-.*",
@@ -226,7 +225,7 @@ full_top15_families$x_axis <- paste(
     sep = "_"
 )
 
-# Define levels for x_axis and labels for the x-axis
+# define levels for x_axis and labels for the x-axis
 x_levels <- c(
     "DR_Y",
     "DR_N",
@@ -243,16 +242,16 @@ x_levels <- c(
 )
 inoc_labels <- c("Y", "N", "Y", "N", "Y", "N", "Y", "N", "Y", "N", "Y", "N")
 
-# Ensure the x_axis is a factor with the predefined levels
+# ensure the x_axis is a factor with the predefined levels
 full_top15_families$x_axis <- factor(
     full_top15_families$x_axis,
     levels = x_levels
 )
 
-# Set the labels for the x-axis, keeping Y/N only (no group labels like DR, LR, etc.)
+# set the labels for the x-axis, keeping Y/N only (no group labels like DR, LR, etc.)
 x_labels <- setNames(inoc_labels, x_levels)
 
-# Step 2: Create the plot
+# create the plot
 p <- ggplot(
     full_top15_families,
     aes(x = x_axis, y = RelativeAbundance, fill = Family)
@@ -282,7 +281,7 @@ p <- ggplot(
         guide = guide_legend(reverse = TRUE, ncol = 1)
     )
 
-# Separate legend and plot
+# separate legend and plot
 legend <- get_legend(p)
 p_no_legend <- p + theme(legend.position = "none")
 combined_plot <- plot_grid(
@@ -293,10 +292,10 @@ combined_plot <- plot_grid(
     rel_widths = c(0.80, 0.02, 0.18)
 )
 
-# Build full file path
+# build full file path
 barplot_file <- file.path(plots_path, "Expt1_barplot.jpg")
 
-# Save the plot
+# save the plot
 ggsave(
     filename = barplot_file,
     plot = combined_plot,
