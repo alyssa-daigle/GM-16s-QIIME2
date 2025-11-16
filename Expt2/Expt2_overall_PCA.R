@@ -160,7 +160,7 @@ pca_plot <- ggplot(
     coord_cartesian(xlim = c(-4, 4), ylim = c(-4, 4)) +
     guides(color = guide_legend(order = 1), shape = guide_legend(order = 2)) +
     theme_cowplot() +
-    pca_theme())
+    pca_theme()
 
 print(pca_plot)
 
