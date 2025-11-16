@@ -1,4 +1,5 @@
 source("globals.R")
+source("theme.R")
 
 # Load .env file
 load_dot_env()
@@ -102,7 +103,7 @@ tax_mat_filtered_counts <- tax_mat_filtered[
 ]
 
 # Phyloseq Object Creation --------------------------------------------------
-# Step 12: Create phyloseq object
+# Create phyloseq object
 ASV <- otu_table(asv_mat_filtered_counts, taxa_are_rows = TRUE)
 TAX <- tax_table(tax_mat_filtered_counts)
 samples <- sample_data(samples_df_filtered)
@@ -110,16 +111,16 @@ physeq <- phyloseq(ASV, TAX, samples)
 
 # PCA Analysis Section -------------------------------------------------------
 
-# Step 1: Extract asv table and transform data
+# Extract asv table and transform data
 asv_data <- otu_table(physeq)
 asv_data_log <- log1p(asv_data) # log(1 + count) transformation
 
-# Step 2: Perform PCA
+# Perform PCA
 pca_results <- rda(t(asv_data_log)) # Transpose the data for PCA
 eig_vals <- eigenvals(pca_results) # Eigenvalues
 varexpl <- (eig_vals / sum(eig_vals)) * 100 # Variance explained
 
-# Step 3: Extract PCA scores
+# Extract PCA scores
 pca_scores <- as.data.frame(scores(pca_results, display = "sites"))
 pca_scores$SampleID <- rownames(pca_scores)
 pca_scores <- merge(
@@ -140,28 +141,8 @@ pca_scores$treatment_category <- ifelse(
     "Water"
 )
 
-# Mapping pond names to full names
-pond_name_mapping <- c(
-    "MP-1" = "Mill Pond",
-    "ODR-2" = "Dairy Farm\nPond 1",
-    "ODR-3" = "Dairy Farm\nPond 2",
-    "TF-1" = "Thompson \nFarm Pond 1",
-    "TF-2" = "Thompson \nFarm Pond 2",
-    "UM-1" = "Upper Mill Pond"
-)
-
 # Recode pond names using pond_name_mapping
 pca_scores$pond_full_name <- recode(pca_scores$pond, !!!pond_name_mapping)
-
-# Define the custom color palette manually
-custom_colors <- c(
-    "#44AA99",
-    "#CC6677",
-    "#88CCEE",
-    "#117733",
-    "#DDCC77",
-    "#332288"
-)
 
 # Apply the selected colors in ggplot
 pca_plot <- ggplot(
@@ -169,7 +150,7 @@ pca_plot <- ggplot(
     aes(x = PC1, y = PC2, color = pond_full_name, shape = treatment_category)
 ) +
     geom_point(size = 3.2) +
-    scale_color_manual(values = custom_colors) + # Use manually selected colors
+    scale_color_manual(values = expt2_custom_colors) + # Use manually selected colors
     labs(
         x = paste("PC1 (", round(varexpl[1], 2), "%)", sep = ""),
         y = paste("PC2 (", round(varexpl[2], 2), "%)", sep = ""),
@@ -179,12 +160,7 @@ pca_plot <- ggplot(
     coord_cartesian(xlim = c(-4, 4), ylim = c(-4, 4)) +
     guides(color = guide_legend(order = 1), shape = guide_legend(order = 2)) +
     theme_cowplot() +
-    theme(
-        legend.position = "right",
-        legend.title = element_markdown(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text = element_text(size = 5.7)
-    )
+    pca_theme())
 
 print(pca_plot)
 
