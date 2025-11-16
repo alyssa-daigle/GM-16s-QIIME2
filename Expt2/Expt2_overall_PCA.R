@@ -1,29 +1,29 @@
-library(phyloseq)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(vegan)
-library(tibble)
-library(MCMCglmm)
+source("globals.R")
 
-# Data Preparation Section --------------------------------------------------
+# Load .env file
+load_dot_env()
 
-#set working directory
-setwd(
-    "/Users/alyssadaigle/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s"
-)
+# Get data path from environment variable
+data_path <- Sys.getenv("data_path")
+plots_path <- Sys.getenv("plots")
 
-# Step 1: Prepare OTU matrix
-otu_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_otu_matrix.tsv",
+# Read ASV matrix
+asv_file <- file.path(data_path, "processed_asv_matrix.tsv")
+
+asv_mat <- read.table(
+    asv_file,
     header = TRUE,
+    sep = "\t",
+    row.names = 1,
     check.names = FALSE
 )
-otu_mat <- as.matrix(otu_mat)
+asv_mat <- as.matrix(asv_mat)
 
-# Step 2: Prepare taxonomy matrix
+# Read taxonomy matrix
+tax_file <- file.path(data_path, "processed_taxonomy_matrix.tsv")
+
 tax_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_taxonomy_matrix.tsv",
+    tax_file,
     sep = "\t",
     header = TRUE,
     row.names = 1,
@@ -31,27 +31,31 @@ tax_mat <- read.table(
 )
 tax_mat <- as.matrix(tax_mat)
 
-# Step 3: Prepare sample data
+# Read sample metadata
+samples_file <- file.path(data_path, "processed_sample_metadata.tsv")
+
 samples_df <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_sample_metadata.tsv",
-    header = TRUE
+    samples_file,
+    header = TRUE,
+    sep = "\t",
+    stringsAsFactors = FALSE
 )
 
 # Data Filtering Section ----------------------------------------------------
 
-# Subset OTU matrix after MP-1-1
-col_index <- which(colnames(otu_mat) == "MP-1-1")
-otu_mat_subset <- otu_mat[, col_index:ncol(otu_mat)]
-otu_mat_subset <- otu_mat_subset[,
-    !grepl("Expt1|soil|blank", colnames(otu_mat_subset))
+# Subset ASV matrix after MP-1-1
+col_index <- which(colnames(asv_mat) == "MP-1-1")
+asv_mat_subset <- asv_mat[, col_index:ncol(asv_mat)]
+asv_mat_subset <- asv_mat_subset[,
+    !grepl("Expt1|soil|blank", colnames(asv_mat_subset))
 ]
 
 #  Remove rows where all values are 0
-otu_mat_subset_filtered <- otu_mat_subset[rowSums(otu_mat_subset) > 0, ]
+asv_mat_subset_filtered <- asv_mat_subset[rowSums(asv_mat_subset) > 0, ]
 
 # Subset the taxonomy matrix
 tax_mat_filtered <- tax_mat[
-    rownames(tax_mat) %in% rownames(otu_mat_subset_filtered),
+    rownames(tax_mat) %in% rownames(asv_mat_subset_filtered),
 ]
 
 # Filter out specific taxa
@@ -68,9 +72,9 @@ tax_mat_filtered <- tax_mat_filtered[
 # Ensure unique taxa names
 rownames(tax_mat_filtered) <- make.unique(rownames(tax_mat_filtered))
 
-# Filter OTU matrix based on taxonomy
-otu_mat_final <- otu_mat_subset_filtered[
-    rownames(otu_mat_subset_filtered) %in% rownames(tax_mat_filtered),
+# Filter ASV matrix based on taxonomy
+asv_mat_final <- asv_mat_subset_filtered[
+    rownames(asv_mat_subset_filtered) %in% rownames(tax_mat_filtered),
 ]
 
 # Filter sample data for Expt 2 specific analysis
@@ -85,34 +89,33 @@ samples_df_filtered <- samples_df_filtered[
 # Relative Abundance Calculation ----------------------------------------
 
 # Relative abundance for filtering
-# fix this so its col sums
-otu_mat_relative <- sweep(otu_mat_final, 2, colSums(otu_mat_final), `/`) * 100
+asv_mat_relative <- sweep(asv_mat_final, 2, colSums(asv_mat_final), `/`) * 100
 
-keep_taxa <- rownames(otu_mat_relative)[apply(otu_mat_relative, 1, function(x) {
+keep_taxa <- rownames(asv_mat_relative)[apply(asv_mat_relative, 1, function(x) {
     any(x >= 1)
 })]
-otu_mat_filtered_counts <- otu_mat_final[keep_taxa, ]
+asv_mat_filtered_counts <- asv_mat_final[keep_taxa, ]
 
-# Filter taxonomy again based on newly calculated rel abundance in the OTU matrix
+# Filter taxonomy again based on newly calculated rel abundance in the asv matrix
 tax_mat_filtered_counts <- tax_mat_filtered[
-    rownames(tax_mat_filtered) %in% rownames(otu_mat_filtered_counts),
+    rownames(tax_mat_filtered) %in% rownames(asv_mat_filtered_counts),
 ]
 
 # Phyloseq Object Creation --------------------------------------------------
 # Step 12: Create phyloseq object
-OTU <- otu_table(otu_mat_filtered_counts, taxa_are_rows = TRUE)
+ASV <- otu_table(asv_mat_filtered_counts, taxa_are_rows = TRUE)
 TAX <- tax_table(tax_mat_filtered_counts)
 samples <- sample_data(samples_df_filtered)
-physeq <- phyloseq(OTU, TAX, samples)
+physeq <- phyloseq(ASV, TAX, samples)
 
 # PCA Analysis Section -------------------------------------------------------
 
-# Step 1: Extract OTU table and transform data
-otu_data <- otu_table(physeq)
-otu_data_log <- log1p(otu_data) # log(1 + count) transformation
+# Step 1: Extract asv table and transform data
+asv_data <- otu_table(physeq)
+asv_data_log <- log1p(asv_data) # log(1 + count) transformation
 
 # Step 2: Perform PCA
-pca_results <- rda(t(otu_data_log)) # Transpose the data for PCA
+pca_results <- rda(t(asv_data_log)) # Transpose the data for PCA
 eig_vals <- eigenvals(pca_results) # Eigenvalues
 varexpl <- (eig_vals / sum(eig_vals)) * 100 # Variance explained
 
@@ -185,15 +188,17 @@ pca_plot <- ggplot(
 
 print(pca_plot)
 
-#save plot
-ggsave("Expt2_pca_plot.jpg", pca_plot, width = 6, height = 4)
-ggsave(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt2_pca_plot.jpg",
-    pca_plot,
-    width = 6,
-    height = 4
-)
+# Build full file path
+pca_plot_file <- file.path(plots_path, "Expt2_pca_plot.jpg")
 
+# Save the plot
+ggsave(
+    filename = pca_plot_file,
+    plot = pca_plot,
+    width = 6,
+    height = 4,
+    dpi = 500
+)
 
 ###PC1 by microbiome source
 
@@ -256,15 +261,6 @@ pc1_pond_plot <- ggplot(
 
 pc1_pond_plot
 
-ggsave("Expt2_pc1_pond_plot.jpg", pc1_pond_plot, width = 6, height = 3)
-ggsave(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt2_pc1_pond_plot.jpg",
-    pc1_pond_plot,
-    width = 6,
-    height = 3
-)
-
-
 ###PC2 by microbiome source
 
 # Calculate mean and standard deviation for PC2
@@ -322,42 +318,32 @@ pc2_pond_plot <- ggplot(
 # Display the plot
 pc2_pond_plot
 
-# Save the plot
-ggsave("Expt2_pc2_pond_plot.jpg", pc2_pond_plot, width = 6, height = 4)
-ggsave(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt2_pc2_pond_plot.jpg",
-    pc2_pond_plot,
-    width = 6,
-    height = 4
-)
-
-
 # which taxa are driving the PCA
 # also linear model to see that PC1 is significantly affected by treatmemnt
 
-# Load species (OTU) scores
-otu_loadings <- scores(pca_results, display = "species") |>
+# Load species (asv) scores
+asv_loadings <- scores(pca_results, display = "species") |>
     as.data.frame() |>
-    tibble::rownames_to_column("OTU")
+    tibble::rownames_to_column("asv")
 
 # Extract taxonomy table
 taxonomy_df <- tax_table(physeq) |>
     as.data.frame() |>
-    tibble::rownames_to_column("OTU") |>
-    select(OTU, Family)
+    tibble::rownames_to_column("asv") |>
+    select(asv, Family)
 
-# Function to get top N OTUs for a given PC
-get_top_otus <- function(df, pc_col, n = 10) {
+# Function to get top N asvs for a given PC
+get_top_asvs <- function(df, pc_col, n = 10) {
     df |>
         arrange(desc(abs(.data[[pc_col]]))) |>
         slice_head(n = n) |>
-        left_join(taxonomy_df, by = "OTU") |>
-        select(OTU, !!pc_col, Family)
+        left_join(taxonomy_df, by = "asv") |>
+        select(asv, !!pc_col, Family)
 }
 
 # Get top 10 for PC1 and PC2
-top10_PC1_df <- get_top_otus(otu_loadings, "PC1")
-top10_PC2_df <- get_top_otus(otu_loadings, "PC2")
+top10_PC1_df <- get_top_asvs(asv_loadings, "PC1")
+top10_PC2_df <- get_top_asvs(asv_loadings, "PC2")
 
 
 # Ensure treatment is a factor (if not already)

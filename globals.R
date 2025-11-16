@@ -1,23 +1,30 @@
+packages <- c(
+  "MCMCglmm",
+  "phyloseq",
+  "ggplot2",
+  "tidyr",
+  "purrr",
+  "dplyr",
+  "cowplot",
+  "vegan",
+  "tibble",
+  "ggtext",
+  "dotenv",
+  "compositions",
+  "corncob"
+)
+
 invisible(
-  c(
-    "MCMCglmm", #
-    "phyloseq", #
-    "ggplot2", #
-    "tidyr",
-    "purrr", #
-    "dplyr",
-    "cowplot",
-    "vegan",
-    "tibble",
-    "ggtext",
-    "dotenv",
-    "compositions",
-    "corncob"
-  ) |>
-    lapply(function(x) {
-      if (suppressMessages(!require(x, character.only = TRUE))) {
-        install.packages(x)
-        library(x, character.only = TRUE)
-      }
-    })
+  lapply(packages, function(pkg) {
+    if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+      install.packages(pkg, quiet = TRUE)
+      suppressPackageStartupMessages(
+        library(pkg, character.only = TRUE, quietly = TRUE)
+      )
+    } else {
+      suppressPackageStartupMessages(
+        library(pkg, character.only = TRUE, quietly = TRUE)
+      )
+    }
+  })
 )
