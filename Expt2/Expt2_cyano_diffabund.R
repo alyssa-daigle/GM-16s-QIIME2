@@ -1,31 +1,30 @@
-library(phyloseq)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(cowplot)
-library(vegan)
-library(tibble)
-library(MCMCglmm)
-library(ggtext)
-library(corncob)
-# Data Preparation Section --------------------------------------------------
+source("globals.R")
+source("theme.R")
 
-#set working directory
-setwd(
-    "/Users/alyssadaigle/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s"
-)
+# Load .env file
+load_dot_env()
 
-# Step 1: Prepare OTU matrix
-otu_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_otu_matrix.tsv",
+# Get data path from environment variable
+data_path <- Sys.getenv("data_path")
+plots_path <- Sys.getenv("plots")
+
+# Read ASV matrix
+asv_file <- file.path(data_path, "processed_asv_matrix.tsv")
+
+asv_mat <- read.table(
+    asv_file,
     header = TRUE,
+    sep = "\t",
+    row.names = 1,
     check.names = FALSE
 )
-otu_mat <- as.matrix(otu_mat)
+asv_mat <- as.matrix(asv_mat)
 
-# Step 2: Prepare taxonomy matrix
+# Read taxonomy matrix
+tax_file <- file.path(data_path, "processed_taxonomy_matrix.tsv")
+
 tax_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_taxonomy_matrix.tsv",
+    tax_file,
     sep = "\t",
     header = TRUE,
     row.names = 1,
@@ -33,25 +32,28 @@ tax_mat <- read.table(
 )
 tax_mat <- as.matrix(tax_mat)
 
-# Step 3: Prepare sample data
-samples_df <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_sample_metadata.tsv",
-    header = TRUE
-)
+# Read sample metadata
+samples_file <- file.path(data_path, "processed_sample_metadata.tsv")
 
+samples_df <- read.table(
+    samples_file,
+    header = TRUE,
+    sep = "\t",
+    stringsAsFactors = FALSE
+)
 
 # Data Filtering Section ----------------------------------------------------
 
-# Subset OTU matrix after MP-1-1
-col_index <- which(colnames(otu_mat) == "MP-1-1")
-otu_mat_subset <- otu_mat[, col_index:ncol(otu_mat)]
-otu_mat_subset <- otu_mat_subset[,
-    !grepl("Expt1|soil|blank", colnames(otu_mat_subset))
+# Subset asv matrix after MP-1-1 (expt2 data only)
+col_index <- which(colnames(asv_mat) == "MP-1-1")
+asv_mat_subset <- asv_mat[, col_index:ncol(asv_mat)]
+asv_mat_subset <- asv_mat_subset[,
+    !grepl("Expt1|soil|blank", colnames(asv_mat_subset))
 ]
-otu_mat_subset <- otu_mat_subset[rowSums(otu_mat_subset) > 0, ]
+asv_mat_subset <- asv_mat_subset[rowSums(asv_mat_subset) > 0, ]
 
-# Filter taxonomy to match OTU
-tax_mat_filtered <- tax_mat[rownames(tax_mat) %in% rownames(otu_mat_subset), ]
+# Filter taxonomy to match asv
+tax_mat_filtered <- tax_mat[rownames(tax_mat) %in% rownames(asv_mat_subset), ]
 
 # Filter for Cyanophyceae
 tax_mat_cyano <- tax_mat_filtered |>
@@ -60,13 +62,13 @@ tax_mat_cyano <- tax_mat_filtered |>
     drop_na(Family) |>
     filter(Family != c("Unclassified", "Unassigned"))
 
-# Keep only rows in OTU table that match Cyanophyceae
-otu_mat_cyano <- otu_mat_subset[
-    rownames(otu_mat_subset) %in% rownames(tax_mat_cyano),
+# Keep only rows in asv table that match Cyanophyceae (cyano-specific analysis)
+asv_mat_cyano <- asv_mat_subset[
+    rownames(asv_mat_subset) %in% rownames(tax_mat_cyano),
 ]
 
 # Convert to long format and merge taxonomy early
-otu_long_cyano <- as.data.frame(otu_mat_cyano) |>
+asv_long_cyano <- as.data.frame(asv_mat_cyano) |>
     rownames_to_column("FeatureID") |>
     pivot_longer(-FeatureID, names_to = "Sample", values_to = "Count") |>
     left_join(
@@ -76,33 +78,33 @@ otu_long_cyano <- as.data.frame(otu_mat_cyano) |>
 
 # Add metadata (filtered only once)
 samples_df_filtered <- samples_df |>
-    filter(!grepl("Expt1|soil|blank", rownames(samples_df))) |>
-    mutate(SampleID = rownames(.))
+    (\(df) df[!grepl("Expt1|soil|blank", rownames(df)), ])() |>
+    (\(df) transform(df, SampleID = rownames(df)))()
 
 # Relative Abundance Calculation ----------------------------------------
 
 # Relative abundance for filtering
-otu_mat_relative <- sweep(otu_mat_cyano, 2, colSums(otu_mat_cyano), `/`) * 100
+asv_mat_relative <- sweep(asv_mat_cyano, 2, colSums(asv_mat_cyano), `/`) * 100
 
 # Filter taxa based on mean relative abundance
-keep_taxa <- rownames(otu_mat_relative)[apply(otu_mat_relative, 1, function(x) {
+keep_taxa <- rownames(asv_mat_relative)[apply(asv_mat_relative, 1, function(x) {
     any(x >= 1)
 })]
-otu_mat_filtered_counts <- otu_mat_cyano[keep_taxa, ]
+asv_mat_filtered_counts <- asv_mat_cyano[keep_taxa, ]
 
-# Filter taxonomy again based on newly calculated rel abundance in the OTU matrix
+# Filter taxonomy again based on newly calculated rel abundance in the asv matrix
 tax_mat_filtered_counts <- tax_mat_cyano[
-    rownames(tax_mat_cyano) %in% rownames(otu_mat_filtered_counts),
+    rownames(tax_mat_cyano) %in% rownames(asv_mat_filtered_counts),
 ]
 
 # Phyloseq Object Creation --------------------------------------------------
 
-# Step 12: Create phyloseq object
-OTU <- otu_table(otu_mat_filtered_counts, taxa_are_rows = TRUE)
+# Create phyloseq object
+ASV <- otu_table(asv_mat_filtered_counts, taxa_are_rows = TRUE)
 tax_mat_filtered_counts <- as.matrix(tax_mat_filtered_counts)
 TAX <- tax_table(tax_mat_filtered_counts)
 samples <- sample_data(samples_df_filtered)
-physeq <- phyloseq(OTU, TAX, samples)
+physeq <- phyloseq(ASV, TAX, samples)
 
 # Extract sample data
 sample_data_df <- data.frame(phyloseq::sample_data(physeq))
@@ -131,10 +133,10 @@ diff_test <- differentialTest(
     fdr_cutoff = 0.05
 )
 
-# Step 1: Extract the plot data
+# Extract the plot data
 plot_data <- plot(diff_test, level = "Family", data_only = TRUE)
 
-# Step 2: Create a new column for enrichment direction
+# Create a new column for enrichment direction
 plot_data$effect_direction <- ifelse(plot_data$x > 0, "Enriched", "Depleted")
 
 # Optional: reorder taxa for better plotting (by effect size within each facet)
@@ -143,7 +145,7 @@ plot_data <- plot_data |>
     mutate(taxa = forcats::fct_reorder(taxa, x)) |>
     ungroup()
 
-ggplot(
+Expt2_cyano_diffabund_plot <- ggplot(
     plot_data,
     aes(x = x, y = taxa, xmin = xmin, xmax = xmax, color = effect_direction)
 ) +
@@ -165,10 +167,13 @@ ggplot(
         axis.text.x = element_text(angle = 0, hjust = 0.5)
     )
 
+# Build full file path
+diffabund_plot_file <- file.path(plots_path, "Expt2_cyano_diffabund_plot.jpg")
 
-ggsave("Expt2_cyano_diffabund_plot.jpg", width = 5, height = 4, dpi = 500)
+# Save the plot
 ggsave(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt2_cyano_diffabund_plot.jpg",
+    filename = diffabund_plot_file,
+    plot = Expt2_cyano_diffabund_plot,
     width = 5,
     height = 4,
     dpi = 500

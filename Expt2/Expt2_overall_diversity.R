@@ -1,29 +1,30 @@
-library(phyloseq)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(vegan)
-library(tibble)
-library(MCMCglmm)
+source("globals.R")
+source("theme.R")
 
-# Data Preparation Section --------------------------------------------------
+# Load .env file
+load_dot_env()
 
-#set working directory
-setwd(
-    "/Users/alyssadaigle/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s"
-)
+# Get data path from environment variable
+data_path <- Sys.getenv("data_path")
+plots_path <- Sys.getenv("plots")
 
-# Step 1: Prepare OTU matrix
-otu_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_otu_matrix.tsv",
+# Read ASV matrix
+asv_file <- file.path(data_path, "processed_asv_matrix.tsv")
+
+asv_mat <- read.table(
+    asv_file,
     header = TRUE,
+    sep = "\t",
+    row.names = 1,
     check.names = FALSE
 )
-otu_mat <- as.matrix(otu_mat)
+asv_mat <- as.matrix(asv_mat)
 
-# Step 2: Prepare taxonomy matrix
+# Read taxonomy matrix
+tax_file <- file.path(data_path, "processed_taxonomy_matrix.tsv")
+
 tax_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_taxonomy_matrix.tsv",
+    tax_file,
     sep = "\t",
     header = TRUE,
     row.names = 1,
@@ -31,31 +32,34 @@ tax_mat <- read.table(
 )
 tax_mat <- as.matrix(tax_mat)
 
-# Step 3: Prepare sample data
+# Read sample metadata
+samples_file <- file.path(data_path, "processed_sample_metadata.tsv")
+
 samples_df <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_sample_metadata.tsv",
-    header = TRUE
+    samples_file,
+    header = TRUE,
+    sep = "\t",
+    stringsAsFactors = FALSE
 )
 
 # Data Filtering Section ----------------------------------------------------
 
-# Step 4: Subset OTU matrix after MP-1-1
-col_index <- which(colnames(otu_mat) == "MP-1-1")
-otu_mat_subset <- otu_mat[, col_index:ncol(otu_mat)]
-otu_mat_subset <- otu_mat_subset[,
-    !grepl("Expt1|soil|blank", colnames(otu_mat_subset))
+# Subset ASV matrix after MP-1-1
+col_index <- which(colnames(asv_mat) == "MP-1-1")
+asv_mat_subset <- asv_mat[, col_index:ncol(asv_mat)]
+asv_mat_subset <- asv_mat_subset[,
+    !grepl("Expt1|soil|blank", colnames(asv_mat_subset))
 ]
 
+#  Remove rows where all values are 0
+asv_mat_subset_filtered <- asv_mat_subset[rowSums(asv_mat_subset) > 0, ]
 
-# Step 5: Remove rows where all values are 0
-otu_mat_subset_filtered <- otu_mat_subset[rowSums(otu_mat_subset) > 0, ]
-
-# Step 6: Subset the taxonomy matrix
+# Subset the taxonomy matrix
 tax_mat_filtered <- tax_mat[
-    rownames(tax_mat) %in% rownames(otu_mat_subset_filtered),
+    rownames(tax_mat) %in% rownames(asv_mat_subset_filtered),
 ]
 
-# Step 7: Filter out specific taxa
+# Filter out specific taxa
 tax_mat_filtered <- tax_mat_filtered[
     !((tax_mat_filtered[, "Kingdom"] == "Bacteria" &
         tax_mat_filtered[, "Phylum"] == "Cyanobacteriota" &
@@ -66,35 +70,31 @@ tax_mat_filtered <- tax_mat_filtered[
         tax_mat_filtered[, "Class"] == "Mitochondria"),
 ]
 
-# Step 8: Ensure unique taxa names
+# Ensure unique taxa names
 rownames(tax_mat_filtered) <- make.unique(rownames(tax_mat_filtered))
 
-# Step 9: Filter OTU matrix based on taxonomy
-otu_mat_final <- otu_mat_subset_filtered[
-    rownames(otu_mat_subset_filtered) %in% rownames(tax_mat_filtered),
+# Filter ASV matrix based on taxonomy
+asv_mat_final <- asv_mat_subset_filtered[
+    rownames(asv_mat_subset_filtered) %in% rownames(tax_mat_filtered),
 ]
 
-# Step 11: Filter sample data for Expt 2 specific analysis
+# Filter sample data for Expt 2 specific analysis
 row_index <- which(rownames(samples_df) == "ODR-2-1")
 samples_df_filtered <- samples_df[row_index:nrow(samples_df), , drop = FALSE]
 samples_df_filtered <- samples_df_filtered[
-    !grepl("Expt1|soil", rownames(samples_df_filtered)),
+    !grepl("Expt1|soil|blank", rownames(samples_df_filtered)),
     ,
     drop = FALSE
 ]
 
-otu_mat_subset <- otu_mat_subset[,
-    !grepl("Expt1|soil|blank", colnames(otu_mat_subset))
-]
-
 # Diversity Analysis Section ------------------------------------------------
 
-# Step 1: Calculate alpha diversity (Shannon index) for each sample
-shannon_div <- diversity(otu_mat_final, index = "shannon", MARGIN = 2)
+# Calculate alpha diversity (Shannon index) for each sample
+shannon_div <- diversity(asv_mat_final, index = "shannon", MARGIN = 2)
 
 shannon_div_df <- data.frame(
-    SampleID = colnames(otu_mat_final),
-    treatment = colnames(otu_mat_final),
+    SampleID = colnames(asv_mat_final),
+    treatment = colnames(asv_mat_final),
     ShannonDiversity = shannon_div
 )
 
@@ -213,16 +213,7 @@ div_plot <- ggplot(
 
 div_plot
 
-ggsave("Expt2_diversity_plot.jpg", div_plot, width = 6, height = 4)
-ggsave(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt2_diversity_plot.jpg",
-    div_plot,
-    width = 6,
-    height = 4
-)
-
-
-#MCMCglmm and ANOVA Analysis Section ----------------------------------------
+#MCMCglmm Section ----------------------------------------
 
 #MCMCglmm
 mcmc_data <- shannon_div_df |>
@@ -240,7 +231,7 @@ mod1 <- MCMCglmm(
     thin = 10,
     burnin = 1000
 )
-summary(mod1)
+summary(mod1) #duckweed samples are significantly less diverse than water samples
 
 #are the ponds different between duckweed samples?
 
@@ -268,6 +259,7 @@ ci_df <- as.data.frame(post_summ)
 ci_df$Effect <- rownames(ci_df)
 names(ci_df)[c(1, 2, 3)] <- c("PostMean", "Lower95CI", "Upper95CI")
 
+#ODR-2 and TF-1 duckweeds are significantly less diverse than MP-1, ODR-3, TF-2, and UM-1 duckweeds
 ggplot(ci_df, aes(x = Effect, y = PostMean)) +
     geom_point(size = 3) +
     geom_errorbar(aes(ymin = Lower95CI, ymax = Upper95CI), width = 0.2) +
@@ -278,6 +270,7 @@ ggplot(ci_df, aes(x = Effect, y = PostMean)) +
         x = "Effect"
     ) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 
 #filter df to water only
 mcmc_W_data <- shannon_div_df |>
@@ -303,6 +296,7 @@ ci_df <- as.data.frame(post_summ)
 ci_df$Effect <- rownames(ci_df)
 names(ci_df)[c(1, 2, 3)] <- c("PostMean", "Lower95CI", "Upper95CI")
 
+#ODR-2 water is significantly less diverse than all others, generally
 ggplot(ci_df, aes(x = Effect, y = PostMean)) +
     geom_point(size = 3) +
     geom_errorbar(aes(ymin = Lower95CI, ymax = Upper95CI), width = 0.2) +

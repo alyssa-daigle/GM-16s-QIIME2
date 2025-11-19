@@ -4,7 +4,16 @@ pond_name_mapping <- c(
   "ODR-3" = "Dairy Farm\nPond 2",
   "TF-1" = "Thompson Farm\nPond 1",
   "TF-2" = "Thompson Farm\nPond 2",
-  "UM-1" = "Upper Mill Pond"
+  "UM-1" = "Upper \nMill Pond"
+)
+
+pond_levels <- c(
+  "Mill Pond",
+  "Upper \nMill Pond",
+  "Dairy Farm\nPond 1",
+  "Dairy Farm\nPond 2",
+  "Thompson Farm\nPond 1",
+  "Thompson Farm\nPond 2"
 )
 
 expt2_custom_colors <- c(
@@ -24,3 +33,21 @@ pca_theme <- function(base_size = 7, base_family = "") {
     strip.text = element_text(size = 5.7)
   )
 }
+
+gravityFalls_colors <- c(
+  "#474747FF", # gray
+  "#8B4513FF", # brown
+  "#D2B48CFF", # tan (brownish)
+  "#000000FF", # black
+  "#417BA1FF", # blue
+  "hotpink", # pink
+  "#FFFF2EFF", # yellow
+  "#345634FF", # dark green
+  "#8B0000FF", # dark red
+  "#E2725B", # orange
+  "#93C0D5FF", # light blue
+  "#9248A7FF", # purple
+  "#1C8859FF", # green
+  "pink2", # pink
+  "#8FBC8FFF" # light green
+)

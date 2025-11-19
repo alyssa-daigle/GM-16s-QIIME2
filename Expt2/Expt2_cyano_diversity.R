@@ -1,34 +1,30 @@
-library(phyloseq)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(cowplot)
-library(vegan)
-library(tibble)
-library(MCMCglmm)
-library(viridis)
-library(pals)
-library(Polychrome)
-library(rcartocolor)
+source("globals.R")
+source("theme.R")
 
-# Data Preparation Section --------------------------------------------------
+# Load .env file
+load_dot_env()
 
-#set working directory
-setwd(
-    "/Users/alyssadaigle/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s"
-)
+# Get data path from environment variable
+data_path <- Sys.getenv("data_path")
+plots_path <- Sys.getenv("plots")
 
-# Step 1: Prepare OTU matrix
-otu_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_otu_matrix.tsv",
+# Read ASV matrix
+asv_file <- file.path(data_path, "processed_asv_matrix.tsv")
+
+asv_mat <- read.table(
+    asv_file,
     header = TRUE,
+    sep = "\t",
+    row.names = 1,
     check.names = FALSE
 )
-otu_mat <- as.matrix(otu_mat)
+asv_mat <- as.matrix(asv_mat)
 
-# Step 2: Prepare taxonomy matrix
+# Read taxonomy matrix
+tax_file <- file.path(data_path, "processed_taxonomy_matrix.tsv")
+
 tax_mat <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_taxonomy_matrix.tsv",
+    tax_file,
     sep = "\t",
     header = TRUE,
     row.names = 1,
@@ -36,31 +32,34 @@ tax_mat <- read.table(
 )
 tax_mat <- as.matrix(tax_mat)
 
-# Step 3: Prepare sample data
-samples_df <- read.table(
-    "~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/16s_Analysis/Experiment2_16s/processed_sample_metadata.tsv",
-    header = TRUE
-)
+# Read sample metadata
+samples_file <- file.path(data_path, "processed_sample_metadata.tsv")
 
+samples_df <- read.table(
+    samples_file,
+    header = TRUE,
+    sep = "\t",
+    stringsAsFactors = FALSE
+)
 
 # Data Filtering Section ----------------------------------------------------
 
-# Step 4: Subset OTU matrix after MP-1-1
-col_index <- which(colnames(otu_mat) == "MP-1-1")
-otu_mat_subset <- otu_mat[, col_index:ncol(otu_mat)]
-otu_mat_subset <- otu_mat_subset[,
-    !grepl("Expt1|soil|blank", colnames(otu_mat_subset))
+# Subset ASV matrix after MP-1-1
+col_index <- which(colnames(asv_mat) == "MP-1-1")
+asv_mat_subset <- asv_mat[, col_index:ncol(asv_mat)]
+asv_mat_subset <- asv_mat_subset[,
+    !grepl("Expt1|soil|blank", colnames(asv_mat_subset))
 ]
 
-# Step 5: Remove rows where all values are 0
-otu_mat_subset_filtered <- otu_mat_subset[rowSums(otu_mat_subset) > 0, ]
+#  Remove rows where all values are 0
+asv_mat_subset_filtered <- asv_mat_subset[rowSums(asv_mat_subset) > 0, ]
 
-# Step 6: Subset the taxonomy matrix
+# Subset the taxonomy matrix
 tax_mat_filtered <- tax_mat[
-    rownames(tax_mat) %in% rownames(otu_mat_subset_filtered),
+    rownames(tax_mat) %in% rownames(asv_mat_subset_filtered),
 ]
 
-# Step 7: Filter out specific taxa
+# Filter out specific taxa
 tax_mat_filtered <- tax_mat_filtered[
     !((tax_mat_filtered[, "Kingdom"] == "Bacteria" &
         tax_mat_filtered[, "Phylum"] == "Cyanobacteriota" &
@@ -71,47 +70,43 @@ tax_mat_filtered <- tax_mat_filtered[
         tax_mat_filtered[, "Class"] == "Mitochondria"),
 ]
 
-# Step 8: Ensure unique taxa names
+# Ensure unique taxa names
 rownames(tax_mat_filtered) <- make.unique(rownames(tax_mat_filtered))
 
-# Step 9: Filter OTU matrix based on taxonomy
-otu_mat_final <- otu_mat_subset_filtered[
-    rownames(otu_mat_subset_filtered) %in% rownames(tax_mat_filtered),
+# Filter ASV matrix based on taxonomy
+asv_mat_final <- asv_mat_subset_filtered[
+    rownames(asv_mat_subset_filtered) %in% rownames(tax_mat_filtered),
 ]
 
-# Step 11: Filter sample data for Expt 2 specific analysis
+# Filter sample data for Expt 2 specific analysis
 row_index <- which(rownames(samples_df) == "ODR-2-1")
 samples_df_filtered <- samples_df[row_index:nrow(samples_df), , drop = FALSE]
 samples_df_filtered <- samples_df_filtered[
-    !grepl("Expt1|soil", rownames(samples_df_filtered)),
+    !grepl("Expt1|soil|blank", rownames(samples_df_filtered)),
     ,
     drop = FALSE
 ]
 
-otu_mat_subset <- otu_mat_subset[,
-    !grepl("Expt1|soil|blank", colnames(otu_mat_subset))
-]
-
 # Cyanophyceae Analysis ------------------------------------------------------
-otu_mat_final_df <- as.data.frame(otu_mat_final) |>
+asv_mat_final_df <- as.data.frame(asv_mat_final) |>
     rownames_to_column(var = "FeatureID")
 
-# Step 2: Reshape OTU data into long format and merge with metadata
+# Reshape asv data into long format and merge with metadata
 samples_df_filtered$SampleID <- rownames(samples_df_filtered)
 
-otu_mat_long <- otu_mat_final_df |>
+asv_mat_long <- asv_mat_final_df |>
     pivot_longer(-FeatureID, names_to = "Sample", values_to = "Count") |>
     left_join(samples_df_filtered, by = c("Sample" = "SampleID"))
 
-# Step 3: Add taxonomy information
+# Add taxonomy information
 tax_mat_filtered_df <- as.data.frame(tax_mat_filtered) |>
     rownames_to_column(var = "FeatureID")
 
-otu_mat_long <- otu_mat_long |>
+asv_mat_long <- asv_mat_long |>
     left_join(tax_mat_filtered_df, by = "FeatureID")
 
-# Step 4: Filter out unclassified taxa before calculating relative abundance
-otu_mat_long_filtered <- otu_mat_long |>
+# Filter out unclassified taxa before calculating relative abundance
+asv_mat_long_filtered <- asv_mat_long |>
     filter(
         !is.na(Family) &
             Family != "Unclassified" &
@@ -120,25 +115,25 @@ otu_mat_long_filtered <- otu_mat_long |>
     )
 
 
-# Step 5: Fill missing family counts with zeroes for each treatment
-otu_treatment_counts_full <- otu_mat_long_filtered |>
+# Fill missing family counts with zeroes for each treatment
+asv_treatment_counts_full <- asv_mat_long_filtered |>
     complete(treatment, Family, fill = list(TotalCount = 0))
 
 
-otu_treatment_counts_full$pond <- sub(
+asv_treatment_counts_full$pond <- sub(
     "^([A-Za-z]+-\\d+)-.*$",
     "\\1",
-    otu_treatment_counts_full$treatment
+    asv_treatment_counts_full$treatment
 )
 
 # Categorize treatment as 'Water' or 'Duckweed'
-otu_treatment_counts_full$treatment_category <- ifelse(
-    grepl("DW", otu_treatment_counts_full$treatment),
+asv_treatment_counts_full$treatment_category <- ifelse(
+    grepl("DW", asv_treatment_counts_full$treatment),
     "Duckweed",
     "Water"
 )
 
-otu_cyano <- otu_treatment_counts_full |>
+asv_cyano <- asv_treatment_counts_full |>
     filter(Class == "Cyanophyceae")
 
 # Diversity Analysis of Cyanophyceae -----------------------------------------
@@ -153,16 +148,16 @@ rownames(cyano_tax_mat_filtered) <- make.unique(rownames(
     cyano_tax_mat_filtered
 ))
 
-# Filter OTU matrix based on taxonomy
-cyano_otu_mat_final <- otu_mat_subset_filtered[
-    rownames(otu_mat_subset_filtered) %in% rownames(cyano_tax_mat_filtered),
+# Filter asv matrix based on taxonomy
+cyano_asv_mat_final <- asv_mat_subset_filtered[
+    rownames(asv_mat_subset_filtered) %in% rownames(cyano_tax_mat_filtered),
 ]
 
 # Calculate alpha diversity (Shannon index) for each sample
-shannon_div <- diversity(cyano_otu_mat_final, index = "shannon", MARGIN = 2)
+shannon_div <- diversity(cyano_asv_mat_final, index = "shannon", MARGIN = 2)
 
 shannon_div_df <- data.frame(
-    SampleID = colnames(cyano_otu_mat_final),
+    SampleID = colnames(cyano_asv_mat_final),
     ShannonDiversity = shannon_div
 )
 
@@ -187,14 +182,6 @@ shannon_div_df$treatment_category <- factor(
     levels = c("Water", "Duckweed")
 )
 
-pond_name_mapping <- c(
-    "MP-1" = "Mill Pond",
-    "ODR-2" = "Dairy Farm\nPond 2",
-    "ODR-3" = "Dairy Farm\nPond 3",
-    "TF-1" = "Thompson \nFarm Pond 1",
-    "TF-2" = "Thompson \nFarm Pond 2",
-    "UM-1" = "Upper \nMill Pond"
-)
 
 # Create a new pond_treatment column to control x-axis order
 shannon_div_df <- shannon_div_df |>
@@ -283,10 +270,9 @@ div_plot <- ggplot(
 
 div_plot
 
-# ggsave("Expt2_cyano_diversity_plot.jpg", div_plot, width = 6, height = 4)
-# ggsave("~/Library/CloudStorage/OneDrive-UniversityofNewHampshire/GreenManureProject/WRITING/plots/Expt2_cyano_diversity_plot.jpg", div_plot, width = 6, height = 4)
 
 #stats section
+
 #does cyano diversity differ between water and duckweed samples
 shannon_div_df |>
     group_by(treatment_category) |>
@@ -311,10 +297,10 @@ mod1 <- MCMCglmm(
     thin = 10,
     burnin = 1000
 )
-summary(mod1)
+summary(mod1) #duckweed-associated cyano are slightly significantly more diverse than water-associated cyano
 
 
-#are the ponds different?
+#are the duckweed samples different?
 mcmc_DW_data <- shannon_div_df |>
     filter(treatment_category == "Duckweed") |>
     select(ShannonDiversity, pond, treatment_category) |>
@@ -338,6 +324,7 @@ ci_df <- as.data.frame(post_summ)
 ci_df$Effect <- rownames(ci_df)
 names(ci_df)[c(1, 2, 3)] <- c("PostMean", "Lower95CI", "Upper95CI")
 
+#slight differences in cyano on duckweeds between ponds
 ggplot(ci_df, aes(x = Effect, y = PostMean)) +
     geom_point(size = 3) +
     geom_errorbar(aes(ymin = Lower95CI, ymax = Upper95CI), width = 0.2) +
@@ -368,12 +355,12 @@ mod3 <- MCMCglmm(
 )
 summary(mod3)
 
-
 post_summ <- summary(mod3)$solutions
 ci_df <- as.data.frame(post_summ)
 ci_df$Effect <- rownames(ci_df)
 names(ci_df)[c(1, 2, 3)] <- c("PostMean", "Lower95CI", "Upper95CI")
 
+#slight differences in cyano in water between ponds
 ggplot(ci_df, aes(x = Effect, y = PostMean)) +
     geom_point(size = 3) +
     geom_errorbar(aes(ymin = Lower95CI, ymax = Upper95CI), width = 0.2) +
